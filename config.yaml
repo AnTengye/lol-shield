@@ -1,0 +1,15 @@
+dev: true
+game:
+    auto_ban: 0
+    auto_confirm: true
+    auto_pick: 0
+log:
+    age: 7
+    backups: 7
+    compress: true
+    filepath: ./log
+    level: debug
+    size: 1024
+show_version: true
+web:
+    addr: :9365
