@@ -743,6 +743,242 @@ type (
 	}
 )
 
+type RankedData struct {
+	CurrentSeasonSplitPoints          int           `json:"currentSeasonSplitPoints"`
+	EarnedRegaliaRewardIds            []interface{} `json:"earnedRegaliaRewardIds"`
+	HighestCurrentSeasonReachedTierSR string        `json:"highestCurrentSeasonReachedTierSR"`
+	HighestPreviousSeasonEndDivision  string        `json:"highestPreviousSeasonEndDivision"`
+	HighestPreviousSeasonEndTier      string        `json:"highestPreviousSeasonEndTier"`
+	HighestRankedEntry                struct {
+		Division                      string      `json:"division"`
+		HighestDivision               string      `json:"highestDivision"`
+		HighestTier                   string      `json:"highestTier"`
+		IsProvisional                 bool        `json:"isProvisional"`
+		LeaguePoints                  int         `json:"leaguePoints"`
+		Losses                        int         `json:"losses"`
+		MiniSeriesProgress            string      `json:"miniSeriesProgress"`
+		PreviousSeasonEndDivision     string      `json:"previousSeasonEndDivision"`
+		PreviousSeasonEndTier         string      `json:"previousSeasonEndTier"`
+		PreviousSeasonHighestDivision string      `json:"previousSeasonHighestDivision"`
+		PreviousSeasonHighestTier     string      `json:"previousSeasonHighestTier"`
+		ProvisionalGameThreshold      int         `json:"provisionalGameThreshold"`
+		ProvisionalGamesRemaining     int         `json:"provisionalGamesRemaining"`
+		QueueType                     string      `json:"queueType"`
+		RatedRating                   int         `json:"ratedRating"`
+		RatedTier                     string      `json:"ratedTier"`
+		Tier                          string      `json:"tier"`
+		Warnings                      interface{} `json:"warnings"`
+		Wins                          int         `json:"wins"`
+	} `json:"highestRankedEntry"`
+	HighestRankedEntrySR struct {
+		Division                      string      `json:"division"`
+		HighestDivision               string      `json:"highestDivision"`
+		HighestTier                   string      `json:"highestTier"`
+		IsProvisional                 bool        `json:"isProvisional"`
+		LeaguePoints                  int         `json:"leaguePoints"`
+		Losses                        int         `json:"losses"`
+		MiniSeriesProgress            string      `json:"miniSeriesProgress"`
+		PreviousSeasonEndDivision     string      `json:"previousSeasonEndDivision"`
+		PreviousSeasonEndTier         string      `json:"previousSeasonEndTier"`
+		PreviousSeasonHighestDivision string      `json:"previousSeasonHighestDivision"`
+		PreviousSeasonHighestTier     string      `json:"previousSeasonHighestTier"`
+		ProvisionalGameThreshold      int         `json:"provisionalGameThreshold"`
+		ProvisionalGamesRemaining     int         `json:"provisionalGamesRemaining"`
+		QueueType                     string      `json:"queueType"`
+		RatedRating                   int         `json:"ratedRating"`
+		RatedTier                     string      `json:"ratedTier"`
+		Tier                          string      `json:"tier"`
+		Warnings                      interface{} `json:"warnings"`
+		Wins                          int         `json:"wins"`
+	} `json:"highestRankedEntrySR"`
+	PreviousSeasonSplitPoints int `json:"previousSeasonSplitPoints"`
+	QueueMap                  struct {
+		CHERRY struct {
+			Division                      string      `json:"division"`
+			HighestDivision               string      `json:"highestDivision"`
+			HighestTier                   string      `json:"highestTier"`
+			IsProvisional                 bool        `json:"isProvisional"`
+			LeaguePoints                  int         `json:"leaguePoints"`
+			Losses                        int         `json:"losses"`
+			MiniSeriesProgress            string      `json:"miniSeriesProgress"`
+			PreviousSeasonEndDivision     string      `json:"previousSeasonEndDivision"`
+			PreviousSeasonEndTier         string      `json:"previousSeasonEndTier"`
+			PreviousSeasonHighestDivision string      `json:"previousSeasonHighestDivision"`
+			PreviousSeasonHighestTier     string      `json:"previousSeasonHighestTier"`
+			ProvisionalGameThreshold      int         `json:"provisionalGameThreshold"`
+			ProvisionalGamesRemaining     int         `json:"provisionalGamesRemaining"`
+			QueueType                     string      `json:"queueType"`
+			RatedRating                   int         `json:"ratedRating"`
+			RatedTier                     string      `json:"ratedTier"`
+			Tier                          string      `json:"tier"`
+			Warnings                      interface{} `json:"warnings"`
+			Wins                          int         `json:"wins"`
+		} `json:"CHERRY"`
+		RANKEDFLEXSR struct {
+			Division                      string      `json:"division"`
+			HighestDivision               string      `json:"highestDivision"`
+			HighestTier                   string      `json:"highestTier"`
+			IsProvisional                 bool        `json:"isProvisional"`
+			LeaguePoints                  int         `json:"leaguePoints"`
+			Losses                        int         `json:"losses"`
+			MiniSeriesProgress            string      `json:"miniSeriesProgress"`
+			PreviousSeasonEndDivision     string      `json:"previousSeasonEndDivision"`
+			PreviousSeasonEndTier         string      `json:"previousSeasonEndTier"`
+			PreviousSeasonHighestDivision string      `json:"previousSeasonHighestDivision"`
+			PreviousSeasonHighestTier     string      `json:"previousSeasonHighestTier"`
+			ProvisionalGameThreshold      int         `json:"provisionalGameThreshold"`
+			ProvisionalGamesRemaining     int         `json:"provisionalGamesRemaining"`
+			QueueType                     string      `json:"queueType"`
+			RatedRating                   int         `json:"ratedRating"`
+			RatedTier                     string      `json:"ratedTier"`
+			Tier                          string      `json:"tier"`
+			Warnings                      interface{} `json:"warnings"`
+			Wins                          int         `json:"wins"`
+		} `json:"RANKED_FLEX_SR"`
+		RANKEDSOLO5X5 struct {
+			Division                      string      `json:"division"`        //段位级别
+			HighestDivision               string      `json:"highestDivision"` //最高段位级别
+			HighestTier                   string      `json:"highestTier"`     //最高段位
+			IsProvisional                 bool        `json:"isProvisional"`   //是否定位赛
+			LeaguePoints                  int         `json:"leaguePoints"`    //分数
+			Losses                        int         `json:"losses"`          //输的盘数
+			MiniSeriesProgress            string      `json:"miniSeriesProgress"`
+			PreviousSeasonEndDivision     string      `json:"previousSeasonEndDivision"`
+			PreviousSeasonEndTier         string      `json:"previousSeasonEndTier"`
+			PreviousSeasonHighestDivision string      `json:"previousSeasonHighestDivision"`
+			PreviousSeasonHighestTier     string      `json:"previousSeasonHighestTier"`
+			ProvisionalGameThreshold      int         `json:"provisionalGameThreshold"`
+			ProvisionalGamesRemaining     int         `json:"provisionalGamesRemaining"`
+			QueueType                     string      `json:"queueType"` //排位类型
+			RatedRating                   int         `json:"ratedRating"`
+			RatedTier                     string      `json:"ratedTier"`
+			Tier                          string      `json:"tier"` //当前段位
+			Warnings                      interface{} `json:"warnings"`
+			Wins                          int         `json:"wins"` //赢的盘数
+		} `json:"RANKED_SOLO_5x5"`
+		RANKEDTFT struct {
+			Division                      string      `json:"division"`
+			HighestDivision               string      `json:"highestDivision"`
+			HighestTier                   string      `json:"highestTier"`
+			IsProvisional                 bool        `json:"isProvisional"`
+			LeaguePoints                  int         `json:"leaguePoints"`
+			Losses                        int         `json:"losses"`
+			MiniSeriesProgress            string      `json:"miniSeriesProgress"`
+			PreviousSeasonEndDivision     string      `json:"previousSeasonEndDivision"`
+			PreviousSeasonEndTier         string      `json:"previousSeasonEndTier"`
+			PreviousSeasonHighestDivision string      `json:"previousSeasonHighestDivision"`
+			PreviousSeasonHighestTier     string      `json:"previousSeasonHighestTier"`
+			ProvisionalGameThreshold      int         `json:"provisionalGameThreshold"`
+			ProvisionalGamesRemaining     int         `json:"provisionalGamesRemaining"`
+			QueueType                     string      `json:"queueType"`
+			RatedRating                   int         `json:"ratedRating"`
+			RatedTier                     string      `json:"ratedTier"`
+			Tier                          string      `json:"tier"`
+			Warnings                      interface{} `json:"warnings"`
+			Wins                          int         `json:"wins"`
+		} `json:"RANKED_TFT"`
+		RANKEDTFTDOUBLEUP struct {
+			Division                      string      `json:"division"`
+			HighestDivision               string      `json:"highestDivision"`
+			HighestTier                   string      `json:"highestTier"`
+			IsProvisional                 bool        `json:"isProvisional"`
+			LeaguePoints                  int         `json:"leaguePoints"`
+			Losses                        int         `json:"losses"`
+			MiniSeriesProgress            string      `json:"miniSeriesProgress"`
+			PreviousSeasonEndDivision     string      `json:"previousSeasonEndDivision"`
+			PreviousSeasonEndTier         string      `json:"previousSeasonEndTier"`
+			PreviousSeasonHighestDivision string      `json:"previousSeasonHighestDivision"`
+			PreviousSeasonHighestTier     string      `json:"previousSeasonHighestTier"`
+			ProvisionalGameThreshold      int         `json:"provisionalGameThreshold"`
+			ProvisionalGamesRemaining     int         `json:"provisionalGamesRemaining"`
+			QueueType                     string      `json:"queueType"`
+			RatedRating                   int         `json:"ratedRating"`
+			RatedTier                     string      `json:"ratedTier"`
+			Tier                          string      `json:"tier"`
+			Warnings                      interface{} `json:"warnings"`
+			Wins                          int         `json:"wins"`
+		} `json:"RANKED_TFT_DOUBLE_UP"`
+		RANKEDTFTTURBO struct {
+			Division                      string      `json:"division"`
+			HighestDivision               string      `json:"highestDivision"`
+			HighestTier                   string      `json:"highestTier"`
+			IsProvisional                 bool        `json:"isProvisional"`
+			LeaguePoints                  int         `json:"leaguePoints"`
+			Losses                        int         `json:"losses"`
+			MiniSeriesProgress            string      `json:"miniSeriesProgress"`
+			PreviousSeasonEndDivision     string      `json:"previousSeasonEndDivision"`
+			PreviousSeasonEndTier         string      `json:"previousSeasonEndTier"`
+			PreviousSeasonHighestDivision string      `json:"previousSeasonHighestDivision"`
+			PreviousSeasonHighestTier     string      `json:"previousSeasonHighestTier"`
+			ProvisionalGameThreshold      int         `json:"provisionalGameThreshold"`
+			ProvisionalGamesRemaining     int         `json:"provisionalGamesRemaining"`
+			QueueType                     string      `json:"queueType"`
+			RatedRating                   int         `json:"ratedRating"`
+			RatedTier                     string      `json:"ratedTier"`
+			Tier                          string      `json:"tier"`
+			Warnings                      interface{} `json:"warnings"`
+			Wins                          int         `json:"wins"`
+		} `json:"RANKED_TFT_TURBO"`
+	} `json:"queueMap"`
+	Queues []struct {
+		Division                      string      `json:"division"`
+		HighestDivision               string      `json:"highestDivision"`
+		HighestTier                   string      `json:"highestTier"`
+		IsProvisional                 bool        `json:"isProvisional"`
+		LeaguePoints                  int         `json:"leaguePoints"`
+		Losses                        int         `json:"losses"`
+		MiniSeriesProgress            string      `json:"miniSeriesProgress"`
+		PreviousSeasonEndDivision     string      `json:"previousSeasonEndDivision"`
+		PreviousSeasonEndTier         string      `json:"previousSeasonEndTier"`
+		PreviousSeasonHighestDivision string      `json:"previousSeasonHighestDivision"`
+		PreviousSeasonHighestTier     string      `json:"previousSeasonHighestTier"`
+		ProvisionalGameThreshold      int         `json:"provisionalGameThreshold"`
+		ProvisionalGamesRemaining     int         `json:"provisionalGamesRemaining"`
+		QueueType                     string      `json:"queueType"`
+		RatedRating                   int         `json:"ratedRating"`
+		RatedTier                     string      `json:"ratedTier"`
+		Tier                          string      `json:"tier"`
+		Warnings                      interface{} `json:"warnings"`
+		Wins                          int         `json:"wins"`
+	} `json:"queues"`
+	RankedRegaliaLevel int `json:"rankedRegaliaLevel"`
+	Seasons            struct {
+		CHERRY struct {
+			CurrentSeasonEnd int64 `json:"currentSeasonEnd"`
+			CurrentSeasonId  int   `json:"currentSeasonId"`
+			NextSeasonStart  int   `json:"nextSeasonStart"`
+		} `json:"CHERRY"`
+		RANKEDFLEXSR struct {
+			CurrentSeasonEnd int64 `json:"currentSeasonEnd"`
+			CurrentSeasonId  int   `json:"currentSeasonId"`
+			NextSeasonStart  int   `json:"nextSeasonStart"`
+		} `json:"RANKED_FLEX_SR"`
+		RANKEDSOLO5X5 struct {
+			CurrentSeasonEnd int64 `json:"currentSeasonEnd"`
+			CurrentSeasonId  int   `json:"currentSeasonId"`
+			NextSeasonStart  int   `json:"nextSeasonStart"`
+		} `json:"RANKED_SOLO_5x5"`
+		RANKEDTFT struct {
+			CurrentSeasonEnd int64 `json:"currentSeasonEnd"`
+			CurrentSeasonId  int   `json:"currentSeasonId"`
+			NextSeasonStart  int   `json:"nextSeasonStart"`
+		} `json:"RANKED_TFT"`
+		RANKEDTFTDOUBLEUP struct {
+			CurrentSeasonEnd int64 `json:"currentSeasonEnd"`
+			CurrentSeasonId  int   `json:"currentSeasonId"`
+			NextSeasonStart  int   `json:"nextSeasonStart"`
+		} `json:"RANKED_TFT_DOUBLE_UP"`
+		RANKEDTFTTURBO struct {
+			CurrentSeasonEnd int64 `json:"currentSeasonEnd"`
+			CurrentSeasonId  int   `json:"currentSeasonId"`
+			NextSeasonStart  int   `json:"nextSeasonStart"`
+		} `json:"RANKED_TFT_TURBO"`
+	} `json:"seasons"`
+	SplitsProgress struct {
+		Field1 int `json:"2"`
+	} `json:"splitsProgress"`
+}
+
 const (
 	JoinedRoomMsg                                  = "joined_room"
 	ConversationMsgTypeSystem ConversationMsgType  = "system"
@@ -1017,6 +1253,7 @@ func QueryGameFlowSession() (*GameFlowSession, error) {
 	return data, nil
 }
 
+// 获取自定义资源
 func GetCustomAssets(path string) ([]byte, error) {
 	// check cli
 	if cli == nil {
@@ -1024,4 +1261,19 @@ func GetCustomAssets(path string) ([]byte, error) {
 	}
 	assetsData, err := cli.httpGet("/lol-game-data/assets/v1" + path)
 	return assetsData, err
+}
+
+// 获取排位数据
+func GetRankedData() (*RankedData, error) {
+	bts, err := cli.httpGet("/lol-ranked/v1/current-ranked-stats")
+	if err != nil {
+		return nil, err
+	}
+	data := &RankedData{}
+	err = json.Unmarshal(bts, data)
+	if err != nil {
+		syslog.L.Info("获取排位数据", zap.Error(err))
+		return nil, err
+	}
+	return data, nil
 }

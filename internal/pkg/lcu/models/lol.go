@@ -53,6 +53,7 @@ const (
 	RankTierSilver      RankTier = "SILVER"      // 白银
 	RankTierGold        RankTier = "GOLD"        // 黄金
 	RankTierPlatinum    RankTier = "PLATINUM"    // 白金
+	RankTierEmerald     RankTier = "EMERALD"     // 翡翠
 	RankTierDiamond     RankTier = "DIAMOND"     // 钻石
 	RankTierMaster      RankTier = "MASTER"      // 大师
 	RankTierGrandMaster RankTier = "GRANDMASTER" // 宗师

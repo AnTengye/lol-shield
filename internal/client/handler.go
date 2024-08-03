@@ -82,12 +82,20 @@ func GetAssets(p *Shield) gin.HandlerFunc {
 func GetUser(p *Shield) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		summoner := p.currSummoner
+		data, err := lcu.GetRankedData()
+		if err != nil {
+			resp.WriteErrRes(ctx, resp.LcuConnectErr.WithField(err.Error()))
+			return
+		}
 		resp.WriteRespData(ctx, resp.User{
 			AccountId:     summoner.AccountId,
 			GameName:      summoner.GameName,
 			ProfileIconId: summoner.ProfileIconId,
 			Level:         summoner.SummonerLevel,
 			TagLine:       summoner.TagLine,
+			Tier:          data.QueueMap.RANKEDSOLO5X5.Tier,
+			Division:      data.QueueMap.RANKEDSOLO5X5.Division,
+			IsProvisional: data.QueueMap.RANKEDSOLO5X5.IsProvisional,
 		})
 	}
 }
