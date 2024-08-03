@@ -55,9 +55,9 @@ type (
 			PointsCostToRoll int `json:"pointsCostToRoll"`
 			PointsToReroll   int `json:"pointsToReroll"`
 		} `json:"rerollPoints"`
-		SummonerId       int64  `json:"summonerId"`
-		SummonerLevel    int    `json:"summonerLevel"`
-		TagLine          string `json:"tagLine"`
+		SummonerId       int64  `json:"summonerId"`    //同accountId
+		SummonerLevel    int    `json:"summonerLevel"` //等级
+		TagLine          string `json:"tagLine"`       //名称编号
 		Unnamed          bool   `json:"unnamed"`
 		XpSinceLastLevel int    `json:"xpSinceLastLevel"`
 		XpUntilNextLevel int    `json:"xpUntilNextLevel"`
@@ -769,7 +769,6 @@ func GetCurrSummoner() (*CurrSummoner, error) {
 	if data.SummonerId == 0 {
 		return nil, errors.New("获取当前召唤师失败")
 	}
-	syslog.L.Info("获取当前召唤师成功", zap.String("data", string(bts)))
 	return data, nil
 }
 
@@ -1016,4 +1015,13 @@ func QueryGameFlowSession() (*GameFlowSession, error) {
 		return nil, errors.New(fmt.Sprintf("查询游戏会话失败 :%s", data.CommonResp.Message))
 	}
 	return data, nil
+}
+
+func GetCustomAssets(path string) ([]byte, error) {
+	// check cli
+	if cli == nil {
+		return nil, errors.New("lcu client not init")
+	}
+	assetsData, err := cli.httpGet("/lol-game-data/assets/v1" + path)
+	return assetsData, err
 }

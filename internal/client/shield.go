@@ -30,13 +30,18 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+type StatusType int
+
+const (
+	STOnline StatusType = iota + 1
+	STWaiting
+)
+
 type (
 	Shield struct {
 		ctx          context.Context
 		httpSrv      *http.Server
-		lcuPort      int
-		lcuToken     string
-		lcuActive    bool
+		CurInfo      StatusInfo
 		currSummoner *lcu.CurrSummoner
 		cancel       func()
 		mu           *sync.Mutex
@@ -49,6 +54,10 @@ type (
 		EventType string      `json:"eventType"`
 		Uri       string      `json:"uri"`
 	}
+	StatusInfo struct {
+		Status StatusType
+		Uid    int64
+	}
 )
 
 func (m wsMsg) ConvertToContext() *tree2.Context {
@@ -57,6 +66,11 @@ func (m wsMsg) ConvertToContext() *tree2.Context {
 		Path:   m.Uri,
 		Method: m.EventType,
 	}
+}
+
+func (m StatusInfo) ToData() []byte {
+	b, _ := json.Marshal(m)
+	return b
 }
 
 const (
@@ -79,7 +93,8 @@ func NewShield() *Shield {
 
 func NewServer(addr string, p *Shield) *http.Server {
 	engine := gin.New()
-	engine.Use(gin.Recovery())
+	//engine.Use(gin.Recovery())
+	engine.Use(middleware.GinLogger(syslog.L), middleware.GinRecovery(syslog.L, true))
 	engine.Use(middleware.Cors())
 	AddRouter(engine, p)
 
@@ -95,7 +110,7 @@ func (p *Shield) Run() error {
 	return p.notifyQuit()
 }
 func (p *Shield) isLcuActive() bool {
-	return p.lcuActive
+	return p.CurInfo.Status == STOnline
 }
 func (p *Shield) notifyQuit() error {
 	if viper.GetBool(configs.Dev) {
@@ -171,8 +186,11 @@ func (p *Shield) MonitorStart() {
 			if err != nil {
 				syslog.L.Debugf("客户端已断开:%v", zap.Error(err))
 			}
-			p.lcuActive = false
 			p.currSummoner = nil
+			p.CurInfo = StatusInfo{
+				Status: STWaiting,
+			}
+			p.Notice()
 		}
 	}
 }
@@ -206,8 +224,11 @@ func (p *Shield) initGameFlowMonitor(port int, authPwd string) error {
 	if err != nil {
 		return errors.New("获取当前召唤师信息失败:" + err.Error())
 	}
-	p.lcuActive = true
-
+	p.CurInfo = StatusInfo{
+		Status: STOnline,
+		Uid:    p.currSummoner.SummonerId,
+	}
+	p.Notice()
 	_ = c.WriteMessage(websocket.TextMessage, []byte("[5, \"OnJsonApiEvent\"]"))
 	for {
 		msgType, message, err := c.ReadMessage()
@@ -317,4 +338,11 @@ func (p Shield) CalcEnemyTeamScore() {
 	if len(summonerIDList) == 0 {
 		return
 	}
+}
+
+func (p *Shield) Notice() {
+	if p.webWs == nil {
+		return
+	}
+	p.webWs.Write(p.CurInfo.ToData())
 }

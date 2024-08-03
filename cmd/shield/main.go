@@ -3,13 +3,13 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"github.com/AnTengye/lol-shield/internal/client"
 	"github.com/AnTengye/lol-shield/internal/pkg/windows/admin"
 	"io"
 	"net/http"
 	"strings"
 
 	"github.com/AnTengye/lol-shield/configs"
-	"github.com/AnTengye/lol-shield/internal/client"
 	"github.com/AnTengye/lol-shield/internal/pkg/syslog"
 )
 

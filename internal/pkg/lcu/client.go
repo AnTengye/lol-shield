@@ -79,3 +79,15 @@ func (cli client) req(method string, url string, data interface{}) ([]byte, erro
 	defer resp.Body.Close()
 	return io.ReadAll(resp.Body)
 }
+
+func (cli client) getWithIO(url string) (io.Reader, int64, error) {
+	req, _ := http.NewRequest(http.MethodGet, cli.baseUrl+url, nil)
+	if req.Body != nil {
+		req.Header.Add("ContentType", "application/json")
+	}
+	resp, err := httpCli.Do(req)
+	if err != nil {
+		return nil, 0, err
+	}
+	return resp.Body, resp.ContentLength, nil
+}

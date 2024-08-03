@@ -2,7 +2,6 @@ package client
 
 import (
 	"encoding/json"
-
 	"github.com/AnTengye/lol-shield/configs"
 	"github.com/AnTengye/lol-shield/internal/pkg/lcu"
 	"github.com/AnTengye/lol-shield/internal/pkg/tree"

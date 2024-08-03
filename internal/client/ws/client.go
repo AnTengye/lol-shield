@@ -1,7 +1,6 @@
 package ws
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -30,6 +29,11 @@ type WebClient struct {
 	send chan []byte
 }
 
+// getuid
+func (c *WebClient) GetUid() string {
+	return c.uid
+}
+
 func (c *WebClient) healthCheck() {
 	ticker := time.NewTicker(TickerTime)
 	defer func() {
@@ -47,18 +51,13 @@ func (c *WebClient) healthCheck() {
 		}
 	}
 }
-func (c *WebClient) Write(msg Message) {
+func (c *WebClient) Write(data []byte) {
 	_ = c.conn.SetWriteDeadline(time.Now().Add(Timeout))
 	w, err := c.conn.NextWriter(websocket.TextMessage)
 	if err != nil {
 		return
 	}
-	msg.Uid = c.uid
-	marshal, err := json.Marshal(msg)
-	if err != nil {
-		return
-	}
-	_, err = w.Write(marshal)
+	_, err = w.Write(data)
 	if err := w.Close(); err != nil {
 		return
 	}
@@ -67,9 +66,6 @@ func (c *WebClient) read() {
 	defer func() {
 		c.conn.Close()
 	}()
-	c.conn.SetReadLimit(2048)
-	_ = c.conn.SetReadDeadline(time.Now().Add(Timeout))
-	c.conn.SetPongHandler(func(string) error { _ = c.conn.SetReadDeadline(time.Now().Add(Timeout)); return nil })
 	for {
 		_, msg, err := c.conn.ReadMessage()
 		if err != nil {
@@ -78,7 +74,7 @@ func (c *WebClient) read() {
 			}
 			break
 		}
-		fmt.Println(string(msg))
+		fmt.Println(msg)
 	}
 }
 
@@ -89,10 +85,8 @@ func ServerWebsocket(w http.ResponseWriter, r *http.Request) *WebClient {
 		return nil
 	}
 	u := uuid.New()
-	client := &WebClient{uid: u.String(), conn: conn, send: make(chan []byte, 256)}
+	c := &WebClient{uid: u.String(), conn: conn, send: make(chan []byte, 256)}
 
-	go client.healthCheck()
-	syslog.L.Infof("%s-ui已连接", client.uid)
-	client.Write(Message{Op: 0})
-	return client
+	go c.healthCheck()
+	return c
 }

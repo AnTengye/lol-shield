@@ -23,6 +23,7 @@ var (
 	PermissionPolicyError = NewResp(NewResponseCode(BusinessLogic, 5), "权限数据异常")
 	RelationDataError     = NewResp(NewResponseCode(BusinessLogic, 6), "关联数据异常")
 	PermissionFailed      = NewResp(NewResponseCode(BusinessLogic, 7), "认证失败")
+	AssetsDataError       = NewResp(NewResponseCode(BusinessLogic, 8), "资源数据异常")
 )
 
 // third
