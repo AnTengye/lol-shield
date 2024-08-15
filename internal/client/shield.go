@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -31,10 +30,16 @@ import (
 )
 
 type StatusType int
+type GameStatusType int
 
 const (
 	STOnline StatusType = iota + 1
 	STWaiting
+)
+
+const (
+	GSWaiting GameStatusType = iota + 1
+	GSStarted
 )
 
 type (
@@ -46,8 +51,12 @@ type (
 		cancel       func()
 		mu           *sync.Mutex
 		GameState    models.GameStatus
+		CurGame      *GameInfo
+		CurLobby     *LobbyInfo
 		wsRouter     *tree2.Engine
 		webWs        *ws.WebClient
+		port         int
+		token        string
 	}
 	wsMsg struct {
 		Data      interface{} `json:"data"`
@@ -55,10 +64,29 @@ type (
 		Uri       string      `json:"uri"`
 	}
 	StatusInfo struct {
-		Status StatusType
-		Uid    int64
+		Status     StatusType
+		GameStatus GameStatusType
+		Uid        int64
+		Uuid       string
 	}
 )
+
+type GameInfo struct {
+	//GameSession lcu.GameFlowSession
+	SelfTeamInfo   lcu.TeamInfo                    `json:"selfTeamInfo"`
+	EnemyTeamInfo  lcu.TeamInfo                    `json:"enemyTeamInfo"`
+	PreTeam        map[int][]lcu.UserId            `json:"preTeam"`
+	AllGameHistory map[string][]lcu.GameHistory    `json:"allGameHistory"`
+	UserNameMap    map[string]lcu.UserName         `json:"userNameMap"`
+	SkinMap        map[string]lcu.ChampionSkinInfo `json:"skinMap"`
+	QueueId        models.GameQueueID              `json:"queueId"`
+}
+
+type LobbyInfo struct {
+	AllowPeople int // 允许的人数
+	GameMode    models.GameMode
+	QueueId     models.GameQueueID
+}
 
 func (m wsMsg) ConvertToContext() *tree2.Context {
 	return &tree2.Context{
@@ -87,7 +115,7 @@ func NewShield() *Shield {
 		GameState: models.GameFlowNone,
 		wsRouter:  tree2.NewEngine(),
 	}
-	p.AddStaticRoute()
+	p.RegisterStaticRoute()
 	return p
 }
 
@@ -167,13 +195,16 @@ func (p *Shield) Stop() error {
 	}
 	return nil
 }
+func (p *Shield) getTokenFromFile() {
+
+}
 
 // MonitorStart 启动客户端监控
 func (p *Shield) MonitorStart() {
 	for {
 		time.Sleep(time.Second)
 		if !p.isLcuActive() {
-			port, token, err := lcu.GetLolClientApiInfo()
+			port, token, err := lcu.GetLcuToken(viper.GetBool(configs.Dev))
 			if err != nil {
 				if !errors.Is(lcu.ErrLolProcessNotFound, err) {
 					syslog.L.Error("获取lcu info 失败", zap.Error(err))
@@ -181,8 +212,8 @@ func (p *Shield) MonitorStart() {
 				continue
 			}
 			lcu.InitCli(port, token)
-			syslog.L.Debugf("lcu info", zap.Any("port", port), zap.Any("token", token))
-			err = p.initGameFlowMonitor(port, token)
+			syslog.L.Debug("lcu info", zap.Int("port", port), zap.String("token", token))
+			err = p.runMonitor(port, token)
 			if err != nil {
 				syslog.L.Debugf("客户端已断开:%v", zap.Error(err))
 			}
@@ -196,7 +227,7 @@ func (p *Shield) MonitorStart() {
 }
 
 // 初始化客户端监控
-func (p *Shield) initGameFlowMonitor(port int, authPwd string) error {
+func (p *Shield) runMonitor(port int, authPwd string) error {
 	dialer := websocket.DefaultDialer
 	dialer.TLSClientConfig = &tls.Config{
 		InsecureSkipVerify: true,
@@ -225,10 +256,14 @@ func (p *Shield) initGameFlowMonitor(port int, authPwd string) error {
 		return errors.New("获取当前召唤师信息失败:" + err.Error())
 	}
 	p.CurInfo = StatusInfo{
-		Status: STOnline,
-		Uid:    p.currSummoner.SummonerId,
+		Status:     STOnline,
+		GameStatus: GSWaiting,
+		Uid:        p.currSummoner.SummonerId,
+		Uuid:       p.currSummoner.Puuid,
 	}
 	p.Notice()
+	go initSkin(p.currSummoner.SummonerId)
+	go p.checkFlow()
 	_ = c.WriteMessage(websocket.TextMessage, []byte("[5, \"OnJsonApiEvent\"]"))
 	for {
 		msgType, message, err := c.ReadMessage()
@@ -251,25 +286,6 @@ func (p *Shield) initGameFlowMonitor(port int, authPwd string) error {
 	}
 }
 
-// 状态变更
-func (p *Shield) onGameFlowUpdate(gameFlow string) {
-	syslog.L.Debug("切换状态:" + gameFlow)
-	p.updateGameState(models.GameStatus(gameFlow))
-	switch gameFlow {
-	case string(models.GameFlowChampionSelect):
-		syslog.L.Infof("进入英雄选择阶段")
-		go p.ChampionSelectStart()
-	case string(models.GameFlowNone):
-	case string(models.GameFlowInProgress):
-		go p.CalcEnemyTeamScore()
-	case string(models.GameFlowReadyCheck):
-		if viper.GetBool(configs.GameAutoConfirm) {
-			go p.AcceptGame()
-		}
-	default:
-	}
-
-}
 func (p *Shield) updateGameState(state models.GameStatus) {
 	p.mu.Lock()
 	p.GameState = state
@@ -280,69 +296,16 @@ func (p *Shield) getGameState() models.GameStatus {
 	defer p.mu.Unlock()
 	return p.GameState
 }
-func (p Shield) ChampionSelectStart() {
-	var summonerIDList []int64
-	for i := 0; i < 3; i++ {
-		time.Sleep(time.Second)
-		// 获取队伍所有用户信息
-		_, summonerIDList, _ = getTeamUsers()
-		if len(summonerIDList) != 5 {
-			continue
-		}
-	}
-	syslog.L.Debug("队伍人员列表:", zap.Any("summonerIDList", summonerIDList))
-	// 查询所有用户的信息并计算得分
-	g := errgroup.Group{}
-	summonerIDMapScore := map[int64]lcu.UserScore{}
-	mu := sync.Mutex{}
-	for _, summonerID := range summonerIDList {
-		summonerID := summonerID
-		g.Go(
-			func() error {
-				actScore, err := GetUserScore(summonerID)
-				if err != nil {
-					syslog.L.Error("计算用户得分失败", zap.Error(err), zap.Int64("summonerID", summonerID))
-					return nil
-				}
-				mu.Lock()
-				summonerIDMapScore[summonerID] = *actScore
-				mu.Unlock()
-				return nil
-			},
-		)
-	}
-	_ = g.Wait()
-	for _, score := range summonerIDMapScore {
-		log.Printf("用户:%s,得分:%.2f\n", score.SummonerName, score.Score)
-	}
-}
-func (p Shield) AcceptGame() {
-	_ = lcu.AcceptGame()
-}
-func (p Shield) CalcEnemyTeamScore() {
-	// 获取当前游戏进程
-	session, err := lcu.QueryGameFlowSession()
-	if err != nil {
-		return
-	}
-	if session.Phase != models.GameFlowInProgress {
-		return
-	}
-	if p.currSummoner == nil {
-		return
-	}
-	selfID := p.currSummoner.SummonerId
-	selfTeamUsers, summonerIDList := getAllUsersFromSession(selfID, session)
-	syslog.L.Debug("我方队伍人员列表:", zap.Any("selfTeamUsers", selfTeamUsers))
-	syslog.L.Debug("敌方队伍人员列表:", zap.Any("summonerIDList", summonerIDList))
-	if len(summonerIDList) == 0 {
-		return
-	}
-}
 
 func (p *Shield) Notice() {
 	if p.webWs == nil {
 		return
 	}
 	p.webWs.Write(p.CurInfo.ToData())
+}
+
+func (p *Shield) reset() {
+	p.CurGame = nil
+	p.CurLobby = nil
+	p.CurInfo.GameStatus = GSWaiting
 }

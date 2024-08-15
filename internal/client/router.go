@@ -20,6 +20,18 @@ func AddRouter(r *gin.Engine, p *Shield) {
 	v1.GET("version", GetVersion(p))
 	// 获取用户信息
 	v1.GET("user", GetUser(p))
+	// 获取战绩列表
+	v1.GET("history/:uid", ListGames(p))
+	// 获取对局详情
+	v1.GET("game/:gameId", GetGameDetail(p))
+	// 获取当前排位最高数据
+	v1.GET("rank/highest/:puuid", GetRankHighest(p))
+	// 获取当前排位最高数据-批量
+	v1.GET("rank/highest", GetMulRankHighest(p))
+	// 获取当前游戏对局中的队伍信息
+	v1.GET("game/running", GetGameRunning(p))
+	// 获取英雄皮肤信息
+	v1.GET("skins", GetSkinInfo(p))
 
 	r.GET(
 		"ws", func(c *gin.Context) {

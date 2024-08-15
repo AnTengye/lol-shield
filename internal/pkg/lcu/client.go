@@ -68,7 +68,10 @@ func (cli client) req(method string, url string, data interface{}) ([]byte, erro
 		}
 		body = bytes.NewReader(bts)
 	}
-	req, _ := http.NewRequest(method, cli.baseUrl+url, body)
+	req, err := http.NewRequest(method, cli.baseUrl+url, body)
+	if err != nil {
+		return nil, err
+	}
 	if req.Body != nil {
 		req.Header.Add("ContentType", "application/json")
 	}

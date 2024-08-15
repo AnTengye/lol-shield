@@ -19,6 +19,7 @@ const (
 	GameAutoConfirm = "game.auto_confirm"
 	GameAutoPick    = "game.auto_pick"
 	GameAutoBan     = "game.auto_ban"
+	TempButton      = "temp.test"
 	// GameAutoConfirm = "game.auto_confirm"
 )
 

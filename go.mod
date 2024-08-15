@@ -3,6 +3,7 @@ module github.com/AnTengye/lol-shield
 go 1.20
 
 require (
+	github.com/allegro/bigcache/v3 v3.1.0
 	github.com/avast/retry-go v2.7.0+incompatible
 	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-gonic/gin v1.8.1
@@ -11,7 +12,8 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/viper v1.13.0
 	go.uber.org/zap v1.23.0
-	golang.org/x/sync v0.0.0-20220907140024-f12130a52804
+	golang.org/x/exp v0.0.0-20240808152545-0cdaa3abc0fa
+	golang.org/x/sync v0.8.0
 	golang.org/x/sys v0.0.0-20220919091848-fb04ddd9f9c8
 	golang.org/x/time v0.0.0-20220920022843-2ce7c2934d45
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0

@@ -3,11 +3,13 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"github.com/AnTengye/lol-shield/internal/client"
-	"github.com/AnTengye/lol-shield/internal/pkg/windows/admin"
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/AnTengye/lol-shield/internal/client"
+	"github.com/AnTengye/lol-shield/internal/pkg/windows/admin"
+	"github.com/spf13/viper"
 
 	"github.com/AnTengye/lol-shield/configs"
 	"github.com/AnTengye/lol-shield/internal/pkg/syslog"
@@ -25,7 +27,6 @@ var configPath = flag.String("c", "config.yaml", "配置文件路径")
 
 func main() {
 	flag.Parse()
-	admin.MustRunWithAdmin()
 	// 初始化配置文件
 	configs.Init(*configPath)
 	syslog.Init()
@@ -33,7 +34,17 @@ func main() {
 	if err != nil {
 		syslog.L.Errorf("检查更新失败:%v", err)
 	}
-	syslog.L.Infof("程序初始化完成")
+	syslog.L.Infof("配置初始化完成,正在启动中...")
+	if viper.GetBool(configs.Dev) {
+		err = admin.RunAsAdmin("lcu-info.exe", "")
+		if err != nil {
+			syslog.L.Fatal("请允许管理员权限启动，否则无法获取客户端信息:", err)
+		} else {
+			syslog.L.Infof("子程序已以管理员权限启动")
+		}
+	} else {
+		admin.MustRunWithAdmin()
+	}
 	shield := client.NewShield()
 	if err = shield.Run(); err != nil {
 		syslog.L.Fatal(err)

@@ -29,6 +29,7 @@ var (
 // third
 var (
 	LcuConnectErr = NewResp(NewResponseCode(ThirdPartyServices, 1), "客户端连接异常")
+	DataNotFound  = NewResp(NewResponseCode(ThirdPartyServices, 2), "数据不存在")
 )
 
 func WriteData(c *gin.Context, data interface{}) {

@@ -12,7 +12,40 @@ const (
 	minGameDurationSec = 15 * 60
 )
 
-func getTeamUsers() (string, []int64, error) {
+var (
+	SkinInfo map[int64]lcu.SkinUrl
+)
+
+func initSkin(summonerId int64) {
+	infos, err := lcu.GetSkinsBySummonerId(summonerId)
+	if err != nil {
+		syslog.L.Error("获取皮肤信息失败", zap.Error(err))
+		return
+	}
+	SkinInfo = make(map[int64]lcu.SkinUrl, len(infos))
+	for _, v := range infos {
+		if len(v.Skins) == 0 {
+			continue
+		}
+		for _, s := range v.Skins {
+			lsp := s.LoadScreenPath[len("/lol-game-data/assets"):]
+			SkinInfo[int64(s.Id)] = lcu.SkinUrl{
+				// /lol-game-data/assets/ASSETS/Characters/Ahri/Skins/Base/AhriLoadscreen_0.jpg
+				LoadScreenPath: lsp,
+			}
+			if len(s.Chromas) != 0 {
+				for _, chromas := range s.Chromas {
+					SkinInfo[int64(chromas.Id)] = lcu.SkinUrl{
+						LoadScreenPath: lsp,
+					}
+				}
+			}
+		}
+
+	}
+}
+
+func getTeamUsers() (string, []lcu.UserId, error) {
 	conversationID, err := lcu.GetCurrConversationID()
 	if err != nil {
 		return "", nil, err
@@ -21,96 +54,145 @@ func getTeamUsers() (string, []int64, error) {
 	if err != nil {
 		return "", nil, err
 	}
-	summonerIDList := getSummonerIDListFromConversationMsgList(msgList)
+	summonerIDList := getIDListFromConversationMsgList(msgList)
 	return conversationID, summonerIDList, nil
 }
-func getSummonerIDListFromConversationMsgList(msgList []lcu.ConversationMsg) []int64 {
-	summonerIDList := make([]int64, 0, 5)
+func getIDListFromConversationMsgList(msgList []lcu.ConversationMsg) []lcu.UserId {
+	list := make([]lcu.UserId, 0, 5)
 	for _, msg := range msgList {
 		if msg.Type == lcu.ConversationMsgTypeSystem && msg.Body == lcu.JoinedRoomMsg {
-			summonerIDList = append(summonerIDList, msg.FromSummonerId)
+			list = append(list, lcu.UserId{
+				SummonerId: msg.FromSummonerId,
+				Puuid:      msg.FromPid[:len(models.PUUIDNone)],
+			})
 		}
 	}
-	return summonerIDList
+	return list
 }
 
-func GetUserScore(summonerID int64) (*lcu.UserScore, error) {
-	userScoreInfo := &lcu.UserScore{
-		SummonerID: summonerID,
-		Score:      defaultScore,
-	}
-	return userScoreInfo, nil
-}
-
-func listGameHistory(summonerID int64) ([]lcu.GameInfo, error) {
-	fmtList := make([]lcu.GameInfo, 0, 20)
-	resp, err := lcu.ListGamesBySummonerID(summonerID, 0, 20)
-	if err != nil {
-		syslog.L.Error("查询用户战绩失败", zap.Error(err), zap.Int64("summonerID", summonerID))
-		return nil, err
-	}
-	for _, gameItem := range resp.Games.Games {
-		if gameItem.QueueId != models.NormalQueueID &&
-			gameItem.QueueId != models.RankSoleQueueID &&
-			gameItem.QueueId != models.ARAMQueueID &&
-			gameItem.QueueId != models.RankFlexQueueID {
-			continue
-		}
-		if gameItem.GameDuration < minGameDurationSec {
-			continue
-		}
-		fmtList = append(fmtList, gameItem)
-	}
-	return fmtList, nil
-}
-
-func getAllUsersFromSession(selfID int64, session *lcu.GameFlowSession) (
-	selfTeamUsers []int64,
-	enemyTeamUsers []int64,
+func getAllUsersFromSession(selfID lcu.UserId, session *lcu.GameFlowSession) (
+	selfTeam lcu.TeamInfo, enemyTeam lcu.TeamInfo, groups map[int][]lcu.UserId, skinInfoMap map[string]lcu.ChampionSkinInfo,
 ) {
-	selfTeamUsers = make([]int64, 0, 5)
-	enemyTeamUsers = make([]int64, 0, 5)
+	selfTeamUsers := make([]lcu.UserId, 0, 5)
+	enemyTeamUsers := make([]lcu.UserId, 0, 5)
 	selfTeamID := models.TeamIDNone
 	for _, teamUser := range session.GameData.TeamOne {
-		summonerID := int64(teamUser.SummonerId)
-		if selfID == summonerID {
+		if selfID.SummonerId == teamUser.SummonerId {
 			selfTeamID = models.TeamIDBlue
 			break
 		}
 	}
 	if selfTeamID == models.TeamIDNone {
 		for _, teamUser := range session.GameData.TeamTwo {
-			summonerID := int64(teamUser.SummonerId)
-			if selfID == summonerID {
+			if selfID.SummonerId == teamUser.SummonerId {
 				selfTeamID = models.TeamIDRed
 				break
 			}
 		}
 	}
 	if selfTeamID == models.TeamIDNone {
+		syslog.L.Errorf("获取用户队伍信息失败:%+v", session.GameData)
 		return
 	}
+	skinMap := make(map[int]int, 10)
+	for _, skin := range session.GameData.PlayerChampionSelections {
+		skinMap[skin.ChampionId] = skin.SelectedSkinIndex
+	}
+	skinInfoMap = make(map[string]lcu.ChampionSkinInfo, 10)
+	teamParticipants := make(map[lcu.UserId]int, 10)
 	for _, user := range session.GameData.TeamOne {
-		userID := int64(user.SummonerId)
-		if userID <= 0 {
-			return
+		userID := lcu.UserId{
+			SummonerId: user.SummonerId,
+			Puuid:      user.Puuid,
+		}
+		if userID.SummonerId == 0 {
+			// 人机
+			break
 		}
 		if models.TeamIDBlue == selfTeamID {
 			selfTeamUsers = append(selfTeamUsers, userID)
 		} else {
 			enemyTeamUsers = append(enemyTeamUsers, userID)
 		}
+		teamParticipants[userID] = user.TeamParticipantId
+		if skinIndex, ok := skinMap[user.ChampionId]; ok {
+			skinInfoMap[userID.Puuid] = lcu.ChampionSkinInfo{
+				ChampionId: int64(user.ChampionId),
+				SkinId:     int64(user.ChampionId*1000 + skinIndex),
+			}
+		}
 	}
 	for _, user := range session.GameData.TeamTwo {
-		userID := int64(user.SummonerId)
-		if userID <= 0 {
-			return
+		userID := lcu.UserId{
+			SummonerId: user.SummonerId,
+			Puuid:      user.Puuid,
+		}
+		if userID.SummonerId == 0 {
+			// 人机
+			break
 		}
 		if models.TeamIDRed == selfTeamID {
 			selfTeamUsers = append(selfTeamUsers, userID)
 		} else {
 			enemyTeamUsers = append(enemyTeamUsers, userID)
 		}
+		teamParticipants[userID] = user.TeamParticipantId
+		if skinIndex, ok := skinMap[user.ChampionId]; ok {
+			skinInfoMap[userID.Puuid] = lcu.ChampionSkinInfo{
+				ChampionId: int64(user.ChampionId),
+				SkinId:     int64(user.ChampionId*1000 + skinIndex),
+			}
+		}
+	}
+	// 使用map根据teamId分组
+	groups = make(map[int][]lcu.UserId)
+
+	for userId, teamId := range teamParticipants {
+		groups[teamId] = append(groups[teamId], userId)
+	}
+	enemyTeamID := models.TeamIDBlue
+	if models.TeamIDBlue == selfTeamID {
+		enemyTeamID = models.TeamIDRed
+	}
+	selfTeam = lcu.TeamInfo{
+		UserList: selfTeamUsers,
+		TeamId:   selfTeamID,
+	}
+	enemyTeam = lcu.TeamInfo{
+		UserList: enemyTeamUsers,
+		TeamId:   enemyTeamID,
+	}
+	return
+}
+
+// 通过对局信息，返回红蓝双方的队伍信息
+func getTeamInfo(self lcu.UserId, game *lcu.GameSummary) (selfTeamUsers []lcu.UserId, enemyTeamUsers []lcu.UserId) {
+	selfTeamUsers = make([]lcu.UserId, 0, 5)
+	enemyTeamUsers = make([]lcu.UserId, 0, 5)
+	partInfoMap := make(map[int]models.TeamID, 10) // key:participantId value:teamId
+	for _, partInfo := range game.Participants {
+		partInfoMap[partInfo.ParticipantId] = partInfo.TeamId
+	}
+	// 是否反转
+	isReverse := false
+	for _, teamUser := range game.ParticipantIdentities {
+		userID := lcu.UserId{
+			SummonerId: teamUser.Player.SummonerId,
+			Puuid:      teamUser.Player.Puuid,
+		}
+		if teamId, ok := partInfoMap[teamUser.ParticipantId]; ok {
+			if teamId == models.TeamIDBlue {
+				selfTeamUsers = append(selfTeamUsers, userID)
+			} else {
+				if teamUser.Player.SummonerId == self.SummonerId {
+					isReverse = true
+				}
+				enemyTeamUsers = append(enemyTeamUsers, userID)
+			}
+		}
+	}
+	if isReverse {
+		selfTeamUsers, enemyTeamUsers = enemyTeamUsers, selfTeamUsers
 	}
 	return
 }

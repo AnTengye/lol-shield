@@ -41,3 +41,14 @@ func IsAdmin() bool {
 	_, err := os.Open("\\\\.\\PHYSICALDRIVE0")
 	return err == nil
 }
+
+func RunAsAdmin(cmd string, args string) error {
+	verb, _ := syscall.UTF16PtrFromString("runas")
+	exe, _ := syscall.UTF16PtrFromString(cmd)
+	arg, _ := syscall.UTF16PtrFromString(args)
+	cwd, _ := syscall.Getwd()
+	dir, _ := syscall.UTF16PtrFromString(cwd)
+
+	// 调用ShellExecuteEx启动程序
+	return windows.ShellExecute(0, verb, exe, arg, dir, syscall.SW_NORMAL)
+}

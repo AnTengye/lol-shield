@@ -7,9 +7,11 @@ log:
     age: 7
     backups: 7
     compress: true
-    filepath: ./log
+    filepath: ./logs/
     level: debug
     size: 1024
 show_version: true
 web:
     addr: :9365
+temp:
+    test: false

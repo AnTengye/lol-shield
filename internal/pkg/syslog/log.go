@@ -2,6 +2,7 @@ package syslog
 
 import (
 	"os"
+	"time"
 
 	"github.com/AnTengye/lol-shield/configs"
 	"github.com/spf13/viper"
@@ -13,19 +14,18 @@ import (
 var L *zap.SugaredLogger
 
 func Init() {
-	writeSyncer := zapcore.AddSync(
-		&lumberjack.Logger{
-			Filename:   viper.GetString(configs.LogFilepath),
-			MaxSize:    viper.GetInt(configs.LogSize),
-			MaxBackups: viper.GetInt(configs.LogBackups),
-			MaxAge:     viper.GetInt(configs.LogAge),
-			Compress:   viper.GetBool(configs.LogCompress),
-			LocalTime:  true,
-		},
-	)
-	if viper.GetBool(configs.Dev) || viper.GetString(configs.LogLevel) == "debug" {
-		writeSyncer = zapcore.AddSync(os.Stdout)
+	lumberJackLogger := &lumberjack.Logger{
+		// 日志文件以日期命名
+		Filename:   viper.GetString(configs.LogFilepath) + "/" + time.Now().Format("20060102") + ".log",
+		MaxSize:    viper.GetInt(configs.LogSize),
+		MaxBackups: viper.GetInt(configs.LogBackups),
+		MaxAge:     viper.GetInt(configs.LogAge),
+		Compress:   viper.GetBool(configs.LogCompress),
+		LocalTime:  true,
 	}
+	syncFile := zapcore.AddSync(lumberJackLogger) // 打印到文件
+	syncConsole := zapcore.AddSync(os.Stderr)     // 打印到控制台
+	syncer := zapcore.NewMultiWriteSyncer(syncFile, syncConsole)
 	config := zap.NewProductionEncoderConfig()
 	config.EncodeTime = zapcore.ISO8601TimeEncoder
 	config.EncodeDuration = zapcore.StringDurationEncoder
@@ -35,7 +35,7 @@ func Init() {
 	}
 	core := zapcore.NewCore(
 		zapcore.NewJSONEncoder(config),
-		writeSyncer,
+		syncer,
 		zap.NewAtomicLevelAt(level),
 	)
 	L = zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1)).Sugar()

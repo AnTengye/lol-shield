@@ -5,6 +5,9 @@ type (
 	GameQueueID   int    // 游戏队列模式id
 	GameQueueType string // 游戏队列模式
 	GameStatus    string // 游戏状态
+	GameCategory  string // 游戏类型
+	ChatType      string // 聊天类型
+	FriendStatus  string // 好友状态
 	RankTier      string // 排位等级
 	GameType      string // 游戏类型
 	Spell         int    // 召唤师技能
@@ -16,14 +19,20 @@ type (
 	TeamIDStr     string // 队伍id
 )
 
+const PUUIDNone = "00000000-0000-0000-0000-000000000000"
+
 const (
 	GameModeNone GameMode = ""
 	// 游戏模式
-	GameModeClassic GameMode = "CLASSIC"      // 经典模式
-	GameModeARAM    GameMode = "ARAM"         // 大乱斗
-	GameModeTFT     GameMode = "TFT"          // 云顶之弈
-	GameModeURF     GameMode = "URF"          // 无限火力
-	GameModeCustom  GameMode = "PRACTICETOOL" // 自定义
+	GameModeClassic    GameMode = "CLASSIC"      // 经典模式
+	GameModeARAM       GameMode = "ARAM"         // 大乱斗
+	GameModeTFT        GameMode = "TFT"          // 云顶之弈
+	GameModeURF        GameMode = "URF"          // 无限火力
+	GameModeCustom     GameMode = "PRACTICETOOL" // 训练+自定义
+	GameModeStrawBerry GameMode = "STRAWBERRY"   // 无尽狂潮
+	// 游戏类型
+	GameCategoryCustom GameCategory = "Custom" // +PRACTICETOOL=训练模式 +CLASSIC=自定义
+	GameCategoryPvP    GameCategory = "PvP"
 	// 队列模式
 	GameQueueTypeNormal   GameQueueType = "NORMAL"            // 匹配
 	GameQueueTypeRankSolo GameQueueType = "RANKED_SOLO_5x5"   // 单双排
@@ -32,6 +41,14 @@ const (
 	GameQueueTypeURF      GameQueueType = "URF"               // 无限火力
 	GameQueueTypeBOT      GameQueueType = "BOT"               // 人机
 	GameQueueTypeCustom   GameQueueType = "PRACTICETOOL"      // 自定义
+	// 聊天类型
+	ChatTypeNormal ChatType = "chat"           //聊天
+	ChatTypeSelect ChatType = "championSelect" //选择英雄中
+	// 好友状态
+	FriendStatusOnline  FriendStatus = "chat"    // 在线
+	FriendStatusOffline FriendStatus = "offline" // 离线
+	FriendStatusAway    FriendStatus = "away"    // 离线
+	FriendStatusInGame  FriendStatus = "dnd"     // 游戏中
 	// 游戏状态
 	GameStatusInQueue        GameStatus = "inQueue"                   // 队列中
 	GameStatusInGame         GameStatus = "inGame"                    // 游戏中
@@ -43,10 +60,14 @@ const (
 	GameStatusHostARAM       GameStatus = "hosting_ARAM_UNRANKED_5x5" // 大乱斗5v5组队中-队长
 	GameStatusHostURF        GameStatus = "hosting_URF"               // 无限火力组队中-队长
 	GameStatusHostBOT        GameStatus = "hosting_BOT"               // 人机组队中-队长
-	GameFlowChampionSelect   GameStatus = "ChampSelect"               // 英雄选择中
-	GameFlowReadyCheck       GameStatus = "ReadyCheck"                // 等待接受对局
-	GameFlowInProgress       GameStatus = "InProgress"                // 进行中
-	GameFlowNone             GameStatus = "None"                      // 无
+	// 游戏阶段
+	GameFlowChampionSelect   GameStatus = "ChampSelect"      // 英雄选择中
+	GameFlowReadyCheck       GameStatus = "ReadyCheck"       // 等待接受对局
+	GameFlowInProgress       GameStatus = "InProgress"       // 进行中
+	GameFlowNone             GameStatus = "None"             // 无
+	GameFlowLobby            GameStatus = "Lobby"            // 大厅
+	GameFlowEndOfGame        GameStatus = "EndOfGame"        // 结束
+	GameFlowChampSelectQueue GameStatus = "ChampSelectQueue" // 英雄选择队列
 	// 排位等级
 	RankTierIron        RankTier = "IRON"        // 黑铁
 	RankTierBronze      RankTier = "BRONZE"      // 青铜
@@ -62,16 +83,17 @@ const (
 	GameTypeMatch GameType = "MATCHED_GAME" // 匹配
 )
 const (
-	// 游戏队列id
-	NormalQueueID    GameQueueID = 430 // 匹配
-	RankSoleQueueID  GameQueueID = 420 // 单排
-	RankFlexQueueID  GameQueueID = 440 // 组排
-	ARAMQueueID      GameQueueID = 450 // 大乱斗
-	URFQueueID       GameQueueID = 900 // 无限火力
-	BOTSimpleQueueID GameQueueID = 830 // 人机入门
-	BOTNoviceQueueID GameQueueID = 840 // 人机新手
-	BOTNormalQueueID GameQueueID = 850 // 人机一般
-
+	// 游戏队列id 参考文档：https://static.developer.riotgames.com/docs/lol/queues.json
+	CustomQuequeID   GameQueueID = 0    // 自定义
+	NormalQueueID    GameQueueID = 430  // 匹配
+	RankSoleQueueID  GameQueueID = 420  // 单排
+	RankFlexQueueID  GameQueueID = 440  // 组排
+	ARAMQueueID      GameQueueID = 450  // 大乱斗
+	URFQueueID       GameQueueID = 900  // 无限火力
+	BOTSimpleQueueID GameQueueID = 830  // 人机入门
+	BOTNoviceQueueID GameQueueID = 840  // 人机新手
+	BOTNormalQueueID GameQueueID = 850  // 人机一般
+	SwarmModeQueueID GameQueueID = 1810 // 无尽狂潮单人
 	// 地图id
 	MapIDClassic MapID = 11 // 经典模式召唤师峡谷
 	MapIDARAM    MapID = 12 // 极地大乱斗

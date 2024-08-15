@@ -9,4 +9,18 @@ type User struct {
 	Tier          string `json:"tier"`
 	Division      string `json:"division"`
 	IsProvisional bool   `json:"isProvisional"` // 是否定位赛
+	Uuid          string `json:"uuid"`
+}
+
+type GameList struct {
+	CreateTime int64  `json:"createTime"`
+	GameId     int64  `json:"gameId"`
+	GameMode   string `json:"gameMode"`
+	GameType   string `json:"gameType"`
+	ChampionId int64  `json:"championId"`
+	QueueId    int64  `json:"queueId"`
+	Win        bool   `json:"win"`
+	Assists    int    `json:"assists"`
+	Kills      int    `json:"kills"`
+	Deaths     int    `json:"deaths"`
 }
