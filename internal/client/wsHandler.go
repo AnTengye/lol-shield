@@ -17,6 +17,39 @@ import (
 	"golang.org/x/exp/maps"
 )
 
+var (
+	SkinInfo map[int64]lcu.SkinUrl
+)
+
+func (p *Shield) initSkin(summonerId int64) {
+	infos, err := lcu.GetSkinsBySummonerId(summonerId)
+	if err != nil {
+		syslog.L.Error("获取皮肤信息失败", zap.Error(err))
+		return
+	}
+	SkinInfo = make(map[int64]lcu.SkinUrl, len(infos))
+	for _, v := range infos {
+		if len(v.Skins) == 0 {
+			continue
+		}
+		for _, s := range v.Skins {
+			lsp := s.LoadScreenPath[len("/lol-game-data/assets"):]
+			SkinInfo[int64(s.Id)] = lcu.SkinUrl{
+				// /lol-game-data/assets/ASSETS/Characters/Ahri/Skins/Base/AhriLoadscreen_0.jpg
+				LoadScreenPath: lsp,
+			}
+			if len(s.Chromas) != 0 {
+				for _, chromas := range s.Chromas {
+					SkinInfo[int64(chromas.Id)] = lcu.SkinUrl{
+						LoadScreenPath: lsp,
+					}
+				}
+			}
+		}
+	}
+	p.CurInfo.SkinSync = 1
+	p.Notice()
+}
 func (p *Shield) HandlerLOLLeagueSessionToken(c *tree.Context) error {
 	/*
 		{
@@ -247,7 +280,7 @@ func (p *Shield) checkFlow() {
 	switch flow {
 	case models.GameFlowInProgress:
 		syslog.L.Debug("尝试恢复游戏数据")
-		p.HandlerInProccessGame()
+		go p.HandlerInProccessGame()
 	case models.GameFlowNone:
 	case models.GameFlowChampionSelect:
 	case models.GameFlowReadyCheck:

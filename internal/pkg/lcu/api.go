@@ -22,12 +22,12 @@ var (
 )
 
 // GetCurrSummoner 获取当前召唤师
-func GetCurrSummoner() (*CurrSummoner, error) {
+func GetCurrSummoner() (*SummonerInfo, error) {
 	bts, err := cli.httpGet("/lol-summoner/v1/current-summoner")
 	if err != nil {
 		return nil, err
 	}
-	data := &CurrSummoner{}
+	data := &SummonerInfo{}
 	err = json.Unmarshal(bts, data)
 	if err != nil {
 		syslog.L.Info("获取当前召唤师失败", zap.Error(err))
@@ -378,4 +378,32 @@ func GetCurrentFlow() (models.GameStatus, error) {
 	}
 	trimmedBts := strings.Trim(string(bts), "\"")
 	return models.GameStatus(trimmedBts), nil
+}
+
+// 查询召唤师信息-指定puuid
+func GetSummonerInfoByPUUID(puuid string) (*SummonerInfo, error) {
+	var (
+		bts []byte
+		err error
+	)
+	get, _ := cache.Cache.Get(fmt.Sprintf("GetSummonerInfoByPUUID:%s", puuid))
+	if get != nil {
+		bts = get
+	} else {
+		bts, err = cli.httpGet("/lol-summoner/v1/current-summoner")
+		if err != nil {
+			return nil, err
+		}
+		_ = cache.Cache.Set(fmt.Sprintf("GetSummonerInfoByPUUID:%s", puuid), bts)
+	}
+	data := &SummonerInfo{}
+	err = json.Unmarshal(bts, data)
+	if err != nil {
+		syslog.L.Info("获取当前召唤师失败", zap.Error(err), zap.String("puuid", puuid))
+		return nil, err
+	}
+	if data.SummonerId == 0 {
+		return nil, errors.New("获取当前召唤师失败:无效编号")
+	}
+	return data, nil
 }

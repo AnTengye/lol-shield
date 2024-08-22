@@ -3,6 +3,7 @@ package admin
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"syscall"
 
@@ -38,7 +39,17 @@ func RunMeElevated() {
 }
 
 func IsAdmin() bool {
+	return isAdminNetSession()
+}
+
+func isAdminOpenPHY() bool {
 	_, err := os.Open("\\\\.\\PHYSICALDRIVE0")
+	return err == nil
+}
+
+func isAdminNetSession() bool {
+	cmd := exec.Command("net", "session")
+	err := cmd.Run()
 	return err == nil
 }
 

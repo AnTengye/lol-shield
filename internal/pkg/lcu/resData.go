@@ -30,8 +30,8 @@ type (
 		HttpStatus int    `json:"httpStatus"`
 		Message    string `json:"message"`
 	}
-	// 自己的数据
-	CurrSummoner struct {
+	// 召唤师数据
+	SummonerInfo struct {
 		AccountId                   int64  `json:"accountId"`    //账户编号
 		DisplayName                 string `json:"displayName"`  //展示名称（目测是曾用名）
 		GameName                    string `json:"gameName"`     //实际游戏昵称

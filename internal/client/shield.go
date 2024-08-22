@@ -47,7 +47,7 @@ type (
 		ctx          context.Context
 		httpSrv      *http.Server
 		CurInfo      StatusInfo
-		currSummoner *lcu.CurrSummoner
+		currSummoner *lcu.SummonerInfo
 		cancel       func()
 		mu           *sync.Mutex
 		GameState    models.GameStatus
@@ -64,10 +64,11 @@ type (
 		Uri       string      `json:"uri"`
 	}
 	StatusInfo struct {
-		Status     StatusType
-		GameStatus GameStatusType
-		Uid        int64
-		Uuid       string
+		Status     StatusType     // 客户端状态
+		GameStatus GameStatusType //游戏状态
+		Uid        int64          //summonerId
+		Uuid       string         //puuid
+		SkinSync   int            //皮肤数据是否已同步
 	}
 )
 
@@ -262,7 +263,7 @@ func (p *Shield) runMonitor(port int, authPwd string) error {
 		Uuid:       p.currSummoner.Puuid,
 	}
 	p.Notice()
-	go initSkin(p.currSummoner.SummonerId)
+	go p.initSkin(p.currSummoner.SummonerId)
 	go p.checkFlow()
 	_ = c.WriteMessage(websocket.TextMessage, []byte("[5, \"OnJsonApiEvent\"]"))
 	for {
