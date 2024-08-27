@@ -54,22 +54,22 @@ func (p *Shield) RegisterStaticRoute() {
 }
 
 // 状态变更
-func (p *Shield) onGameFlowUpdate(gameFlow string) {
-	syslog.L.Debug("切换状态:" + gameFlow)
-	p.updateGameState(models.GameStatus(gameFlow))
+func (p *Shield) onGameFlowUpdate(gameFlow models.GameStatus) {
+	syslog.L.Infof("游戏状态:%s", gameFlow)
+	p.updateGameState(gameFlow)
 	switch gameFlow {
-	case string(models.GameFlowChampionSelect):
+	case models.GameFlowChampionSelect:
 		go p.ChampionSelectStart()
-	case string(models.GameFlowNone):
+	case models.GameFlowNone:
 		p.reset()
 		go p.Notice()
-	case string(models.GameFlowInProgress):
+	case models.GameFlowInProgress:
 		go p.HandlerInProccessGame()
-	case string(models.GameFlowReadyCheck):
+	case models.GameFlowReadyCheck:
 		if viper.GetBool(configs.GameAutoConfirm) {
 			go p.AcceptGame()
 		}
-	case string(models.GameFlowEndOfGame):
+	case models.GameFlowEndOfGame:
 		p.CurInfo.GameStatus = GSWaiting
 		go p.Notice()
 	default:

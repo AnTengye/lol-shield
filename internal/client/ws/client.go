@@ -45,7 +45,7 @@ func (c *WebClient) healthCheck() {
 		case <-ticker.C:
 			_ = c.conn.SetWriteDeadline(time.Now().Add(Timeout))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				syslog.L.Infof("%s-ui已断开", c.uid)
+				syslog.L.Infof("Web页面-ID:%s 已断开", c.uid)
 				return
 			}
 		}

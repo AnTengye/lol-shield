@@ -39,7 +39,7 @@ func AddRouter(r *gin.Engine, p *Shield) {
 			if client != nil {
 				p.webWs = client
 				//go client.read() // 不需要读取web消息
-				syslog.L.Infof("%s-ui已连接", client.GetUid())
+				syslog.L.Infof("成功连接到Web页面-ID：%s", client.GetUid())
 				p.Notice()
 			}
 		},

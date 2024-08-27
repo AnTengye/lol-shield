@@ -2,6 +2,7 @@ package client
 
 import (
 	"sync"
+	"time"
 
 	"github.com/AnTengye/lol-shield/internal/pkg/lcu"
 	"github.com/AnTengye/lol-shield/internal/pkg/syslog"
@@ -39,6 +40,8 @@ func getGameHistoryByUserList(userList []lcu.UserId) (historyMap map[string][]lc
 				return nil
 			},
 		)
+		// 增加间隔，防止客户端崩溃
+		time.Sleep(time.Second)
 	}
 	err = g.Wait()
 	if err != nil {

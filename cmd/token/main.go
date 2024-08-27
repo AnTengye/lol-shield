@@ -14,7 +14,6 @@ func main() {
 		log.Println("需要管理员权限，请以管理员身份运行")
 		return
 	}
-
 	log.Println("正在以管理员权限运行")
 	v3, s, err := lcu.GetLcuToken(false)
 	if err != nil {

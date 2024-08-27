@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 	"syscall"
+	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
@@ -39,7 +40,12 @@ func RunMeElevated() {
 }
 
 func IsAdmin() bool {
-	return isAdminNetSession()
+	y, err := isAdminWithProcessToken()
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+	return y
 }
 
 func isAdminOpenPHY() bool {
@@ -62,4 +68,35 @@ func RunAsAdmin(cmd string, args string) error {
 
 	// 调用ShellExecuteEx启动程序
 	return windows.ShellExecute(0, verb, exe, arg, dir, syscall.SW_NORMAL)
+}
+
+const (
+	SECURITY_MANDATORY_HIGH_RID = 0x00003000
+)
+
+func isAdminWithProcessToken() (bool, error) {
+	var token windows.Token
+	// 获取当前进程的访问令牌
+	err := windows.OpenProcessToken(windows.CurrentProcess(), windows.TOKEN_QUERY, &token)
+	if err != nil {
+		return false, err
+	}
+	defer token.Close()
+
+	// 获取令牌中的完整性级别
+	var tokenInfoLength uint32
+	windows.GetTokenInformation(token, windows.TokenIntegrityLevel, nil, 0, &tokenInfoLength)
+	tokenInfo := make([]byte, tokenInfoLength)
+	err = windows.GetTokenInformation(token, windows.TokenIntegrityLevel, &tokenInfo[0], tokenInfoLength, &tokenInfoLength)
+	if err != nil {
+		return false, err
+	}
+
+	// 解析完整性级别
+	tokenIL := (*windows.Tokenmandatorylabel)(unsafe.Pointer(&tokenInfo[0]))
+	subAuthority := *(*uint32)(unsafe.Pointer(uintptr(unsafe.Pointer(tokenIL.Label.Sid)) + uintptr(8)))
+
+	// 判断是否为高完整性级别
+	isElevated := subAuthority >= SECURITY_MANDATORY_HIGH_RID
+	return isElevated, nil
 }

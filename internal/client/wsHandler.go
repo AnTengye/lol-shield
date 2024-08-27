@@ -70,7 +70,7 @@ func (p *Shield) HandlerFlowChange(c *tree.Context) error {
 	if !ok {
 		return errors.New("flow data error")
 	}
-	p.onGameFlowUpdate(gameFlow)
+	p.onGameFlowUpdate(models.GameStatus(gameFlow))
 	return nil
 }
 
@@ -276,18 +276,6 @@ func (p *Shield) checkFlow() {
 		syslog.L.Error("获取游戏状态失败", zap.Error(err))
 		return
 	}
-	syslog.L.Infof("检测目前游戏状态:%v", flow)
-	switch flow {
-	case models.GameFlowInProgress:
-		syslog.L.Debug("尝试恢复游戏数据")
-		go p.HandlerInProccessGame()
-	case models.GameFlowNone:
-	case models.GameFlowChampionSelect:
-	case models.GameFlowReadyCheck:
-	case models.GameFlowEndOfGame:
-	default:
-		syslog.L.Error("未知游戏状态", zap.Any("data", flow))
-		return
-	}
+	p.onGameFlowUpdate(flow)
 	return
 }

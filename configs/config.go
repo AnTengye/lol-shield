@@ -25,13 +25,13 @@ const (
 
 func Init(configPath string) {
 	viper.SetDefault(ShowVersion, true)
-	viper.SetDefault(Dev, true)
+	viper.SetDefault(Dev, false)
 	viper.SetDefault(LogFilepath, "./log")
 	viper.SetDefault(LogSize, 1024)
 	viper.SetDefault(LogBackups, 7)
 	viper.SetDefault(LogAge, 7)
 	viper.SetDefault(LogCompress, true)
-	viper.SetDefault(LogLevel, "debug")
+	viper.SetDefault(LogLevel, "info")
 	viper.SetDefault(GameAutoConfirm, true)
 	viper.SetDefault(GameAutoPick, 0)
 	viper.SetDefault(GameAutoBan, 0)

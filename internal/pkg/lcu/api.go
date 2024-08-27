@@ -45,7 +45,6 @@ func ListConversationMsg(conversationID string) ([]ConversationMsg, error) {
 	if err != nil {
 		return nil, err
 	}
-	syslog.L.Info("获取会话组消息记录", zap.String("bts", string(bts)))
 	list := make([]ConversationMsg, 0, 10)
 	err = json.Unmarshal(bts, &list)
 	if err != nil {
