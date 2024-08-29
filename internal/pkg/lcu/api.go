@@ -48,7 +48,7 @@ func ListConversationMsg(conversationID string) ([]ConversationMsg, error) {
 	list := make([]ConversationMsg, 0, 10)
 	err = json.Unmarshal(bts, &list)
 	if err != nil {
-		syslog.L.Info("获取会话组消息记录失败", zap.Error(err))
+		syslog.L.Error("获取会话组消息记录失败", zap.Error(err))
 		return nil, err
 	}
 	return list, nil
@@ -161,7 +161,7 @@ func GetChampSelectSession() (*ChampSelectSessionInfo, error) {
 	data := &ChampSelectSessionInfo{}
 	err = json.Unmarshal(bts, data)
 	if err != nil {
-		syslog.L.Info("查询选人会话详情失败", zap.Error(err))
+		syslog.L.Error("查询选人会话详情失败", zap.Error(err))
 		return nil, err
 	}
 	if data.CommonResp.ErrorCode != "" {

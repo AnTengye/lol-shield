@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/AnTengye/lol-shield/internal/client"
 	"github.com/AnTengye/lol-shield/internal/pkg/windows/admin"
@@ -30,13 +31,9 @@ func main() {
 	// 初始化配置文件
 	configs.Init(*configPath)
 	syslog.Init()
-	err := checkUpdate()
-	if err != nil {
-		syslog.L.Errorf("检查更新失败:%v", err)
-	}
-	syslog.L.Infof("配置初始化完成,正在启动中...")
+	syslog.L.Infof("配置初始化完成,正在检查更新中...")
 	if viper.GetBool(configs.Dev) {
-		err = admin.RunAsAdmin("lcu-info.exe", "")
+		err := admin.RunAsAdmin("lcu-info.exe", "")
 		if err != nil {
 			syslog.L.Fatal("请允许管理员权限启动，否则无法获取客户端信息:", err)
 		} else {
@@ -45,6 +42,10 @@ func main() {
 	} else {
 		admin.MustRunWithAdmin()
 	}
+	err := checkUpdate()
+	if err != nil {
+		syslog.L.Errorf("检查更新失败:%v", err)
+	}
 	shield := client.NewShield()
 	if err = shield.Run(); err != nil {
 		syslog.L.Fatal(err)
@@ -52,6 +53,7 @@ func main() {
 }
 
 func checkUpdate() error {
+	http.DefaultClient.Timeout = time.Second * 3
 	resp, err := http.Get(configs.UpdateApi)
 	if err != nil {
 		return err
@@ -69,7 +71,7 @@ func checkUpdate() error {
 	if compare < 0 {
 		if updateInfo.Force {
 			syslog.L.Infof("存在新版本:%s，需要强制更新", updateInfo.Version)
-			panic("force")
+			panic("force update")
 		}
 		syslog.L.Infof("存在新版本:%s，建议更新", updateInfo.Version)
 	}

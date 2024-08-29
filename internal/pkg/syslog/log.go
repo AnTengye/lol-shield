@@ -38,5 +38,9 @@ func Init() {
 		syncer,
 		zap.NewAtomicLevelAt(level),
 	)
-	L = zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1)).Sugar()
+	options := []zap.Option{}
+	if viper.GetBool(configs.Dev) {
+		options = append(options, zap.AddCaller(), zap.AddCallerSkip(1))
+	}
+	L = zap.New(core, options...).Sugar()
 }

@@ -147,6 +147,20 @@ func (p *Shield) HandlerLolChatFriendCounts(c *tree.Context) error {
 }
 
 func (p *Shield) ChampionSelectStart() {
+	if p.CurLobby == nil {
+		// 获取当前游戏进程
+		session, err := lcu.QueryGameFlowSession()
+		if err != nil {
+			return
+		}
+		queueInfo := session.GameData.Queue
+		p.CurLobby = &LobbyInfo{
+			AllowPeople: len(queueInfo.AllowablePremadeSizes),
+			GameMode:    models.GameMode(queueInfo.GameMode),
+			QueueId:     models.GameQueueID(queueInfo.Id),
+		}
+		return
+	}
 	switch p.CurLobby.GameMode {
 	case models.GameModeStrawBerry:
 		// 娱乐模式不处理用户信息
@@ -154,12 +168,12 @@ func (p *Shield) ChampionSelectStart() {
 	}
 	var idList []lcu.UserId
 	for i := 0; i < 3; i++ {
-		time.Sleep(time.Second)
 		// 获取队伍所有用户信息
 		_, idList, _ = getTeamUsers()
 		if len(idList) != p.CurLobby.AllowPeople {
 			continue
 		}
+		time.Sleep(time.Second)
 	}
 	// 查询自己队伍的信息
 	historyMap, userNameMap, err := getGameHistoryByUserList(idList)
