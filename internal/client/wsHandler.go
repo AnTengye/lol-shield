@@ -159,7 +159,6 @@ func (p *Shield) ChampionSelectStart() {
 			GameMode:    models.GameMode(queueInfo.GameMode),
 			QueueId:     models.GameQueueID(queueInfo.Id),
 		}
-		return
 	}
 	switch p.CurLobby.GameMode {
 	case models.GameModeStrawBerry:
@@ -175,11 +174,27 @@ func (p *Shield) ChampionSelectStart() {
 		}
 		time.Sleep(time.Second)
 	}
-	// 查询自己队伍的信息
-	historyMap, userNameMap, err := getGameHistoryByUserList(idList)
-	if err != nil {
-		syslog.L.Errorf("查询用户信息失败:%v", err)
-		return
+	if len(idList) != p.CurLobby.AllowPeople {
+		return // 未获取到队伍信息
+	}
+	var (
+		historyMap  map[string][]lcu.GameHistory
+		userNameMap map[string]lcu.UserName
+		err         error
+	)
+	retry := 3
+	for retry > 0 {
+		retry--
+		// 查询自己队伍的信息
+		historyMap, userNameMap, err = getGameHistoryByUserList(idList)
+		if err != nil {
+			syslog.L.Errorf("查询用户信息失败:%v", err)
+			return
+		}
+		if len(historyMap) == p.CurLobby.AllowPeople && len(userNameMap) == p.CurLobby.AllowPeople {
+			break
+		}
+		time.Sleep(3 * time.Second)
 	}
 	p.CurGame = &GameInfo{
 		AllGameHistory: historyMap,
@@ -218,23 +233,22 @@ func (p *Shield) HandlerInProccessGame() {
 		Puuid:      p.currSummoner.Puuid,
 	}
 	selfTeamUsers, enemyTeamUsers, groups, skinMap := getAllUsersFromSession(selfID, session)
-
 	// 查询对面的信息
 	historyMap, userNameMap, err := getGameHistoryByUserList(enemyTeamUsers.UserList)
 	if err != nil {
 		syslog.L.Errorf("查询用户信息失败:%v", err)
 		return
 	}
-	if p.CurGame == nil {
+	if p.CurGame == nil || len(p.CurGame.AllGameHistory) == 0 {
 		// 查询自己队伍的信息
-		historyMap, userNameMap, err = getGameHistoryByUserList(selfTeamUsers.UserList)
-		if err != nil {
-			syslog.L.Errorf("查询用户信息失败:%v", err)
+		selfHistoryMap, selfUserNameMap, selfErr := getGameHistoryByUserList(selfTeamUsers.UserList)
+		if selfErr != nil {
+			syslog.L.Errorf("查询用户信息失败:%v", selfErr)
 			return
 		}
 		p.CurGame = &GameInfo{
-			AllGameHistory: historyMap,
-			UserNameMap:    userNameMap,
+			AllGameHistory: selfHistoryMap,
+			UserNameMap:    selfUserNameMap,
 		}
 	}
 	p.CurGame.SelfTeamInfo = selfTeamUsers

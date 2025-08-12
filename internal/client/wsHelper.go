@@ -19,24 +19,32 @@ func getGameHistoryByUserList(userList []lcu.UserId) (historyMap map[string][]lc
 		puuid := summoner.Puuid
 		g.Go(
 			func() error {
-				tmap, userName, err := gameHistorySync(puuid)
-				if err != nil {
-					return err
-				}
-				if userName.GameName == "" || userName.TagLine == "" {
-					summonerInfo, err := lcu.GetSummonerInfoByPUUID(puuid)
+				retry := 3
+				for retry > 0 {
+					retry--
+					tmap, userName, err := gameHistorySync(puuid)
 					if err != nil {
 						return err
 					}
-					userName = lcu.UserName{
-						GameName: summonerInfo.GameName,
-						TagLine:  summonerInfo.TagLine,
+					if len(tmap) == 0 {
+						continue
 					}
+					if userName.GameName == "" || userName.TagLine == "" {
+						summonerInfo, err := lcu.GetSummonerInfoByPUUID(puuid)
+						if err != nil {
+							return err
+						}
+						userName = lcu.UserName{
+							GameName: summonerInfo.GameName,
+							TagLine:  summonerInfo.TagLine,
+						}
+					}
+					mu.Lock()
+					defer mu.Unlock()
+					maps.Copy(historyMap, tmap)
+					userNameMap[puuid] = userName
+					return nil
 				}
-				mu.Lock()
-				defer mu.Unlock()
-				maps.Copy(historyMap, tmap)
-				userNameMap[puuid] = userName
 				return nil
 			},
 		)

@@ -70,6 +70,7 @@ func (p *Shield) onGameFlowUpdate(gameFlow models.GameStatus) {
 			go p.AcceptGame()
 		}
 	case models.GameFlowEndOfGame:
+		p.CurGame = nil
 		p.CurInfo.GameStatus = GSWaiting
 		go p.Notice()
 	default:
