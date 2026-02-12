@@ -19,9 +19,13 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-windows-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-release:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
@@ -32,71 +36,86 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
 
       - name: Install frontend dependencies
         working-directory: frontend
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Build frontend
         working-directory: frontend
         run: pnpm build
 
       - name: Sync frontend dist to embed directory
-        shell: pwsh
-        run: powershell -ExecutionPolicy Bypass -File .\scripts\sync_frontend_dist.ps1
+        shell: bash
+        run: |
+          mkdir -p internal/v2/api/web/dist
+          rm -rf internal/v2/api/web/dist/*
+          cp -r frontend/dist/* internal/v2/api/web/dist/
 
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          cache: true
+          cache-dependency-path: |
+            go.sum
 
       - name: Resolve release metadata
         id: meta
-        shell: pwsh
+        shell: bash
         run: |
-          $eventName = "${{ github.event_name }}"
-          if ($eventName -eq "workflow_dispatch") {
-            $tag = "${{ inputs.tag_name }}"
-          } else {
-            $tag = "${{ github.ref_name }}"
-          }
-          if (-not $tag.StartsWith("v")) {
-            throw "Tag must start with 'v'. Current: $tag"
-          }
-          "tag_name=$tag" >> $env:GITHUB_OUTPUT
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            tag="${{ inputs.tag_name }}"
+          else
+            tag="${{ github.ref_name }}"
+          fi
+          case "$tag" in
+            v*) ;;
+            *) echo "Tag must start with v, got: $tag"; exit 1 ;;
+          esac
+          echo "tag_name=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Build binaries
-        shell: pwsh
+        shell: bash
         run: |
-          New-Item -ItemType Directory -Force dist | Out-Null
-          go build -tags=jsoniter -ldflags "-s -w" -o dist/lol-shield-v2.exe cmd/shield-v2/main.go
-          go build -tags=jsoniter -ldflags "-s -w" -o dist/lcu-info.exe cmd/token/main.go
-
-          Copy-Item -Force config.yaml dist/config.yaml
+          set -euo pipefail
+          mkdir -p dist/full dist/backend
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -tags="jsoniter with_frontend" -ldflags "-s -w" -o dist/full/lol-shield-v2.exe ./cmd/shield-v2
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -tags="jsoniter no_frontend" -ldflags "-s -w" -o dist/backend/lol-shield-v2-backend.exe ./cmd/shield-v2
+          cp config.yaml dist/full/config.yaml
+          cp config.yaml dist/backend/config.yaml
 
       - name: Package zip
         id: pack
-        shell: pwsh
+        shell: bash
         run: |
-          New-Item -ItemType Directory -Force release | Out-Null
-          $tag = "${{ steps.meta.outputs.tag_name }}"
-          $zipName = "lol-shield_${tag}_windows_amd64_v2.zip"
-          $zipPath = Join-Path (Resolve-Path .\release) $zipName
-          if (Test-Path $zipPath) { Remove-Item -Force $zipPath }
-          Compress-Archive -Path dist\* -DestinationPath $zipPath
-          "zip_path=$zipPath" >> $env:GITHUB_OUTPUT
+          set -euo pipefail
+          mkdir -p release
+          tag="${{ steps.meta.outputs.tag_name }}"
+          zip_full="release/lol-shield_${tag}_windows_amd64_v2_full.zip"
+          zip_backend="release/lol-shield_${tag}_windows_amd64_v2_backend.zip"
+          rm -f "$zip_full" "$zip_backend"
+          (cd dist/full && zip -9 -r "../../$zip_full" .)
+          (cd dist/backend && zip -9 -r "../../$zip_backend" .)
+          echo "zip_full=$zip_full" >> "$GITHUB_OUTPUT"
+          echo "zip_backend=$zip_backend" >> "$GITHUB_OUTPUT"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-release-${{ steps.meta.outputs.tag_name }}
-          path: ${{ steps.pack.outputs.zip_path }}
+          path: |
+            ${{ steps.pack.outputs.zip_full }}
+            ${{ steps.pack.outputs.zip_backend }}
 
       - name: Create GitHub Release
         if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_release == true)
@@ -105,4 +124,6 @@ jobs:
           tag_name: ${{ steps.meta.outputs.tag_name }}
           name: ${{ steps.meta.outputs.tag_name }}
           generate_release_notes: true
-          files: ${{ steps.pack.outputs.zip_path }}
+          files: |
+            ${{ steps.pack.outputs.zip_full }}
+            ${{ steps.pack.outputs.zip_backend }}

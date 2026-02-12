@@ -4,6 +4,21 @@
 
 - Push tag (`v*`) -> auto build + package + create GitHub Release.
 - Manual trigger (`workflow_dispatch`) -> custom tag for v2 release.
+- Each release publishes 2 packages:
+  - `v2_full`: embedded frontend, double-click exe can open page.
+  - `v2_backend`: backend-only executable.
+- CI optimization enabled:
+  - `concurrency` cancel-in-progress
+  - pnpm cache via `actions/setup-node`
+  - Go cache via `actions/setup-go`
+  - Node `22`, pnpm `10`
+  - Dependabot auto-merge for `semver-patch` / `semver-minor` (major excluded)
+
+## Dist policy
+
+- Frontend `dist` is not committed.
+- Action builds frontend dist on each run and injects it into full package by build tag `with_frontend`.
+- Backend package uses tag `no_frontend`.
 
 Workflow file:
 - `.github/workflows/release-windows.yml`
@@ -30,8 +45,12 @@ After workflow success, GitHub Release will be created with zip package.
 
 Release artifact naming:
 
-`lol-shield_<tag>_windows_amd64_v2.zip`
+`lol-shield_<tag>_windows_amd64_v2_full.zip`
+
+`lol-shield_<tag>_windows_amd64_v2_backend.zip`
 
 Example:
 
-`lol-shield_v1.2.3_windows_amd64_v2.zip`
+`lol-shield_v1.2.3_windows_amd64_v2_full.zip`
+
+`lol-shield_v1.2.3_windows_amd64_v2_backend.zip`

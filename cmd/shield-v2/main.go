@@ -53,6 +53,7 @@ func main() {
 	r.Use(middleware.GinLogger(syslog.L), middleware.GinRecovery(syslog.L, true))
 	r.Use(middleware.Cors())
 	api.RegisterV2Routes(r, engine, runningService)
+	api.RegisterFrontendRoutes(r)
 	r.GET("/healthz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"ok": true})
 	})
@@ -69,6 +70,14 @@ func main() {
 			syslog.L.Fatalf("listen failed: %v", err)
 		}
 	}()
+	if viper.GetBool(configs.WebAutoOpen) {
+		go func() {
+			time.Sleep(500 * time.Millisecond)
+			if err := openWebPage(webAddr); err != nil {
+				syslog.L.Warnf("auto open browser failed: %v", err)
+			}
+		}()
+	}
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)

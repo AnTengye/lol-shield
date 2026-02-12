@@ -1,9 +1,17 @@
-.PHONY: build
-build: cmd/shield-v2
-	@CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -tags=jsoniter -ldflags "-s -w " -o bin/lol-shield-v2.exe cmd/shield-v2/main.go
+.PHONY: build build-full build-backend frontend-build frontend-sync
 
-lcu-build: cmd/token
-	@CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -tags=jsoniter -ldflags "-s -w " -o bin/lcu-info.exe cmd/token/main.go
+build: build-full
 
-embed-front:
-	@powershell -ExecutionPolicy Bypass -File .\scripts\sync_frontend_dist.ps1
+frontend-build:
+	@cd frontend && npm install && npm run build
+
+frontend-sync:
+	@mkdir -p internal/v2/api/web/dist
+	@rm -rf internal/v2/api/web/dist/*
+	@cp -r frontend/dist/* internal/v2/api/web/dist/
+
+build-full: frontend-build frontend-sync
+	@CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -tags="jsoniter with_frontend" -ldflags "-s -w " -o bin/lol-shield-v2.exe ./cmd/shield-v2
+
+build-backend:
+	@CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -tags="jsoniter no_frontend" -ldflags "-s -w " -o bin/lol-shield-v2-backend.exe ./cmd/shield-v2
