@@ -19,8 +19,8 @@
     </a-form>
 </template>
 <script>
-import { getConfig, updateConfig } from '@/api/bog'
-import { defineComponent, reactive, toRaw, onMounted } from 'vue';
+import { getConfigV2, patchConfigV2 } from '@/v2/api/config'
+import { defineComponent, reactive, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
 
 
@@ -33,11 +33,11 @@ export default defineComponent({
             options: [],
         });
         onMounted(async () => {
-            getConfig().then(res => {
-                const result = res.data.game;
-                formState.autoConfirm = result.auto_confirm;
-                formState.autoPick = result.auto_pick;
-                formState.autoBan = result.auto_ban;
+            getConfigV2().then(res => {
+                const result = res.data || {};
+                formState.autoConfirm = !!result.autoConfirm;
+                formState.autoPick = Number(result.autoPick || 0);
+                formState.autoBan = Number(result.autoBan || 0);
             })
             fetch('/champion.json')
                 .then(response => response.json())
@@ -59,11 +59,13 @@ export default defineComponent({
         const onSubmit = () => {
             message
                 .loading('同步配置中')
-                .then(
-                    () => updateConfig(formState.autoConfirm, formState.autoPick, formState.autoBan).then(() => {
-                        message.success('更新成功')
-                    }),
-                );
+                .then(() => patchConfigV2({
+                    autoConfirm: formState.autoConfirm,
+                    autoPick: formState.autoPick,
+                    autoBan: formState.autoBan,
+                }).then(() => {
+                    message.success('更新成功')
+                }));
 
         };
 

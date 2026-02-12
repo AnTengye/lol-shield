@@ -37,8 +37,8 @@
                         </div>
                     </a-menu-item>
                     <a-menu-item key="/"><router-link to="/">基础配置</router-link></a-menu-item>
-                    <a-menu-item key="/rank"><router-link to="/rank">战绩</router-link></a-menu-item>
                     <a-menu-item key="/running"><router-link to="/running">对局小助手</router-link></a-menu-item>
+                    <a-menu-item key="/v2"><router-link to="/v2">V2控制台</router-link></a-menu-item>
                 </a-menu>
             </a-layout-header>
             <a-layout-content class="scale-content">
@@ -51,17 +51,16 @@
     </a-layout>
 </template>
 <script>
-import { defineComponent, ref, reactive, onMounted, watch } from 'vue';
-import { getVersion, getUser, getSkins } from '@/api/bog'
-import { useRoute, useRouter } from 'vue-router'
+import { defineComponent, ref, reactive, onMounted, onBeforeUnmount } from 'vue';
+import { getUserV2, getSkinsV2 } from '@/v2/api/user'
 import { useStore } from 'vuex'
-import { createWebSocket } from './websocket/index'
 import dicts from '@/model/dicts/index'
 import {
     CheckCircleOutlined,
     SyncOutlined,
     CloseCircleOutlined,
 } from '@ant-design/icons-vue';
+
 export default defineComponent({
     components: {
         CheckCircleOutlined,
@@ -69,13 +68,11 @@ export default defineComponent({
         CloseCircleOutlined,
     },
     setup() {
-        const router = useRouter()
         const store = useStore()
-        createWebSocket(store)
         const status = reactive({
             online: '服务暂未启动',
             color: 'error',
-            version: 'v0.0.0'
+            version: 'v2'
         });
         const userInfo = reactive({
             name: '召唤师#99999',
@@ -83,56 +80,69 @@ export default defineComponent({
             level: 30,
             rank: '暂无数据'
         });
-        const uid = ref(0)
+        const uid = ref('')
+        const rank = dicts.getDict('rank')
+        let timer = null
 
-
-        watch(() => store.getters['ws/getGameStatus'], (newStatus) => {
-            if (newStatus === 2) {
-                router.push('/running')
+        const ensureSkins = () => {
+            let skins = localStorage.getItem('skins')
+            if (!skins) {
+                getSkinsV2().then(res => {
+                    localStorage.setItem('skins', JSON.stringify(res.data))
+                }).catch(() => { })
             }
-        })
-        watch(() => store.getters['ws/getSkinSync'], (newStatus) => {
-            if (newStatus === 1) {
-                let skins = localStorage.getItem('skins')
-                if (skins === null || skins === {}) {
-                    getSkins().then(res => {
-                        localStorage.setItem('skins', JSON.stringify(res.data))
-                    })
+        }
+
+        const refreshUser = () => {
+            getUserV2().then(res => {
+                userInfo.icon = import.meta.env.VITE_BACK_URL + '/riot/v1/profile-icons/' + res.data.profileIconId + '.jpg'
+                userInfo.name = res.data.gameName + '#' + res.data.tagLine
+                userInfo.level = res.data.summonerLevel
+                uid.value = res.data.uuid || ''
+                if (res.data.tier !== 'NA') {
+                    userInfo.rank = rank[res.data.tier] + res.data.division
+                } else {
+                    userInfo.rank = '暂无数据'
                 }
-            }
-        })
-        watch(() => store.getters['ws/getStatus'], (newOnline) => {
-            if (newOnline === 1) {
-                status.color = 'success'
-                status.online = '已连接客户端'
-                // 获取用户信息
-                getUser().then(res => {
-                    userInfo.icon = import.meta.env.VITE_BACK_URL + '/riot/v1/profile-icons/' + res.data.profileIconId + '.jpg'
-                    userInfo.name = res.data.gameName + '#' + res.data.tagLine
-                    userInfo.level = res.data.summonerLevel
-                    if (res.data.tier !== 'NA') {
-                        userInfo.rank = rank[res.data.tier] + res.data.division
-                    }
-                })
+            }).catch(() => { })
+        }
 
-            } else if (newOnline === 2) {
-                status.color = 'processing'
-                status.online = '等待连接中'
-            } else {
+        const refreshV2State = () => {
+            store.dispatch('connectionV2/refresh').then(() => {
+                const connection = store.state.connectionV2
+                if (connection.status === 'online') {
+                    status.color = 'success'
+                    status.online = '已连接客户端'
+                    refreshUser()
+                    ensureSkins()
+                } else if (connection.status === 'connecting') {
+                    status.color = 'processing'
+                    status.online = '等待连接中'
+                } else {
+                    status.color = 'error'
+                    status.online = '服务暂未启动'
+                }
+            }).catch(() => {
                 status.color = 'error'
                 status.online = '服务暂未启动'
+            })
+        }
+
+        onMounted(() => {
+            refreshV2State()
+            timer = setInterval(refreshV2State, 3000)
+        })
+
+        onBeforeUnmount(() => {
+            if (timer) {
+                clearInterval(timer)
+                timer = null
             }
-            console.log('status change', status)
         })
-        watch(() => store.getters['ws/getUid'], (newUid) => {
-            console.log('uid change', newUid)
-            uid.value = newUid
-        })
-        const rank = dicts.getDict('rank')
+
         return {
             status,
             userInfo,
-            // selectedKeys: ref(['1']),
             rank,
             uid
         };

@@ -16,7 +16,7 @@ export default defineConfig({
     },
     server: {
         proxy: {
-            '/v1': {
+            '/api': {
                 target: 'http://localhost:9365',
                 changeOrigin: true,
             },
@@ -24,10 +24,6 @@ export default defineConfig({
                 target: 'http://localhost:9365',
                 changeOrigin: true,
             },
-            '/ws': {
-                target: 'ws://localhost:9365',
-                ws: true,
-            }
         }
     }
 })

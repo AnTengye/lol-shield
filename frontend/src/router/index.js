@@ -1,7 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import SettingPage from '../views/SettingFrom.vue';
-import RankList from '../views/RankList.vue';
-import RealTime from '../views/RealTime.vue';
+
+const SettingPage = () => import('../views/SettingFrom.vue');
+const RealTime = () => import('../views/RealTime.vue');
+const V2Console = () => import('../views/V2Console.vue');
 
 export default createRouter({
     history: createWebHistory(),
@@ -18,16 +19,16 @@ export default createRouter({
                     component: SettingPage,
                 },
                 {
-                    path: '/rank',
-                    name: 'Rank',
-                    meta: { title: '战绩', icon: 'icon-icon-test' },
-                    component: RankList,
-                },
-                {
                     path: '/running',
                     name: 'RealTime',
                     meta: { title: '实时对局', icon: 'icon-icon-test' },
                     component: RealTime,
+                },
+                {
+                    path: '/v2',
+                    name: 'V2Console',
+                    meta: { title: 'V2控制台', icon: 'icon-icon-test' },
+                    component: V2Console,
                 },
             ],
         },

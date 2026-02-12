@@ -1,0 +1,31 @@
+{
+  "phase": "InProgress",
+  "gameData": {
+    "queue": {
+      "id": 420,
+      "name": "Ranked Solo/Duo"
+    },
+    "teamOne": [
+      {
+        "summonerId": 1,
+        "puuid": "self-puuid",
+        "teamParticipantId": 1,
+        "championId": 157
+      }
+    ],
+    "teamTwo": [
+      {
+        "summonerId": 2,
+        "puuid": "enemy-puuid",
+        "teamParticipantId": 2,
+        "championId": 238
+      }
+    ],
+    "playerChampionSelections": [
+      {
+        "championId": 157,
+        "selectedSkinIndex": 0
+      }
+    ]
+  }
+}

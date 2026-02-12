@@ -1,9 +1,9 @@
 import { createStore } from "vuex";
-import ws from "./websocket";
+import connectionV2 from "@/v2/store/connection";
 
 export default createStore({
     state: {},
     mutations: {},
     actions: {},
-    modules: { ws },
+    modules: { connectionV2 },
 });

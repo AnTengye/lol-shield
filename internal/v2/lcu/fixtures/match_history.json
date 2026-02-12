@@ -1,0 +1,35 @@
+{
+  "games": {
+    "games": [
+      {
+        "gameCreation": 1730000000000,
+        "gameId": 1234567890,
+        "gameMode": "CLASSIC",
+        "gameType": "MATCHED_GAME",
+        "queueId": 420,
+        "participantIdentities": [
+          {
+            "participantId": 1,
+            "player": {
+              "puuid": "self-puuid",
+              "gameName": "PlayerA",
+              "tagLine": "1234"
+            }
+          }
+        ],
+        "participants": [
+          {
+            "championId": 157,
+            "participantId": 1,
+            "stats": {
+              "kills": 10,
+              "deaths": 2,
+              "assists": 8,
+              "win": true
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
