@@ -10,6 +10,7 @@ const (
 	ShowVersion     = "show_version"
 	Dev             = "dev"
 	WebAddr         = "web.addr"
+	WebAutoOpen     = "web.auto_open"
 	LogFilepath     = "log.filepath"
 	LogSize         = "log.size"
 	LogBackups      = "log.backups"
@@ -36,6 +37,7 @@ func Init(configPath string) {
 	viper.SetDefault(GameAutoPick, 0)
 	viper.SetDefault(GameAutoBan, 0)
 	viper.SetDefault(WebAddr, ":9365")
+	viper.SetDefault(WebAutoOpen, true)
 	viper.SetConfigFile(configPath)
 	err := viper.ReadInConfig()
 	if err != nil {

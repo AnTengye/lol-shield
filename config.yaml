@@ -1,4 +1,4 @@
-dev: true
+dev: false
 game:
     auto_ban: 0
     auto_confirm: true
@@ -13,5 +13,6 @@ log:
 show_version: true
 web:
     addr: :9365
+    auto_open: true
 temp:
     test: false

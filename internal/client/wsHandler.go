@@ -256,6 +256,7 @@ func (p *Shield) HandlerInProccessGame() {
 	p.CurGame.PreTeam = groups
 	p.CurGame.SkinMap = skinMap
 	p.CurGame.QueueId = p.CurLobby.QueueId
+	p.CurGame.QueueName = queueInfo.Name
 	maps.Copy(p.CurGame.AllGameHistory, historyMap)
 	maps.Copy(p.CurGame.UserNameMap, userNameMap)
 	p.Notice()

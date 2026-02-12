@@ -2,3 +2,5 @@
 /.idea
 /logs
 lcu-info.exe
+internal/client/web/dist
+*.exe

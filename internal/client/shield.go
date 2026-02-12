@@ -81,6 +81,7 @@ type GameInfo struct {
 	UserNameMap    map[string]lcu.UserName         `json:"userNameMap"`
 	SkinMap        map[string]lcu.ChampionSkinInfo `json:"skinMap"`
 	QueueId        models.GameQueueID              `json:"queueId"`
+	QueueName      string                          `json:"queueName"`
 }
 
 type LobbyInfo struct {
@@ -147,7 +148,8 @@ func (p *Shield) notifyQuit() error {
 	} else {
 		gin.SetMode(gin.ReleaseMode)
 	}
-	srv := NewServer(viper.GetString(configs.WebAddr), p)
+	webAddr := viper.GetString(configs.WebAddr)
+	srv := NewServer(webAddr, p)
 	p.httpSrv = srv
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
@@ -162,6 +164,17 @@ func (p *Shield) notifyQuit() error {
 			return nil
 		},
 	)
+	if viper.GetBool(configs.WebAutoOpen) {
+		go func() {
+			// Wait briefly to avoid opening browser before socket bind.
+			time.Sleep(500 * time.Millisecond)
+			if err := openWebPage(webAddr); err != nil {
+				syslog.L.Warnf("自动打开浏览器失败: %v", err)
+				return
+			}
+			syslog.L.Infof("已自动打开页面: %s", normalizeWebURL(webAddr))
+		}()
+	}
 	// http-shutdown
 	g.Go(
 		func() error {

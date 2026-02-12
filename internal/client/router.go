@@ -44,4 +44,6 @@ func AddRouter(r *gin.Engine, p *Shield) {
 			}
 		},
 	)
+
+	registerFrontendRoutes(r)
 }
