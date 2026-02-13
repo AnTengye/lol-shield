@@ -16,6 +16,7 @@ import (
 	"github.com/AnTengye/lol-shield/configs"
 	"github.com/AnTengye/lol-shield/internal/client/middleware"
 	"github.com/AnTengye/lol-shield/internal/client/ws"
+	"github.com/AnTengye/lol-shield/internal/core/lcuapi"
 	"github.com/AnTengye/lol-shield/internal/pkg/lcu"
 	"github.com/AnTengye/lol-shield/internal/pkg/lcu/models"
 	"github.com/AnTengye/lol-shield/internal/pkg/syslog"
@@ -57,6 +58,7 @@ type (
 		webWs        *ws.WebClient
 		port         int
 		token        string
+		lcuService   lcuapi.Service
 	}
 	wsMsg struct {
 		Data      interface{} `json:"data"`
@@ -109,13 +111,21 @@ const (
 )
 
 func NewShield() *Shield {
+	return NewShieldWithLCU(lcuapi.New())
+}
+
+func NewShieldWithLCU(lcuSvc lcuapi.Service) *Shield {
 	ctx, cancel := context.WithCancel(context.Background())
+	if lcuSvc == nil {
+		lcuSvc = lcuapi.New()
+	}
 	p := &Shield{
-		ctx:       ctx,
-		cancel:    cancel,
-		mu:        &sync.Mutex{},
-		GameState: models.GameFlowNone,
-		wsRouter:  tree2.NewEngine(),
+		ctx:        ctx,
+		cancel:     cancel,
+		mu:         &sync.Mutex{},
+		GameState:  models.GameFlowNone,
+		wsRouter:   tree2.NewEngine(),
+		lcuService: lcuSvc,
 	}
 	p.RegisterStaticRoute()
 	return p
@@ -166,8 +176,10 @@ func (p *Shield) notifyQuit() error {
 	)
 	if viper.GetBool(configs.WebAutoOpen) {
 		go func() {
-			// Wait briefly to avoid opening browser before socket bind.
-			time.Sleep(500 * time.Millisecond)
+			if !waitForWebReady(webAddr, 3*time.Second) {
+				syslog.L.Warnf("页面未在预期时间内就绪，跳过自动打开: %s", normalizeWebURL(webAddr))
+				return
+			}
 			if err := openWebPage(webAddr); err != nil {
 				syslog.L.Warnf("自动打开浏览器失败: %v", err)
 				return
@@ -218,14 +230,14 @@ func (p *Shield) MonitorStart() {
 	for {
 		time.Sleep(time.Second)
 		if !p.isLcuActive() {
-			port, token, err := lcu.GetLcuToken(viper.GetBool(configs.Dev))
+			port, token, err := p.lcuService.GetToken(viper.GetBool(configs.LCUTokenFromFile))
 			if err != nil {
-				if !errors.Is(lcu.ErrLolProcessNotFound, err) {
+				if !p.lcuService.IsProcessNotFound(err) {
 					syslog.L.Error("获取lcu info 失败", zap.Error(err))
 				}
 				continue
 			}
-			lcu.InitCli(port, token)
+			p.lcuService.Init(port, token)
 			syslog.L.Debug("lcu info", zap.Int("port", port), zap.String("token", token))
 			err = p.runMonitor(port, token)
 			if err != nil {
@@ -259,7 +271,7 @@ func (p *Shield) runMonitor(port int, authPwd string) error {
 	defer c.Close()
 	err = retry.Do(
 		func() error {
-			currSummoner, err := lcu.GetCurrSummoner()
+			currSummoner, err := p.lcuService.GetCurrSummoner()
 			if err == nil {
 				p.currSummoner = currSummoner
 			}

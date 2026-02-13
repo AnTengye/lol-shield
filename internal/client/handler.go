@@ -6,7 +6,6 @@ import (
 
 	"github.com/AnTengye/lol-shield/configs"
 	"github.com/AnTengye/lol-shield/internal/client/resp"
-	"github.com/AnTengye/lol-shield/internal/pkg/lcu"
 	"github.com/AnTengye/lol-shield/internal/pkg/lcu/models"
 	"github.com/AnTengye/lol-shield/internal/pkg/syslog"
 	"github.com/gin-gonic/gin"
@@ -70,7 +69,7 @@ func GetLcu(p *Shield) gin.HandlerFunc {
 
 func GetAssets(p *Shield) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		data, err := lcu.GetCustomAssets(ctx.Param("assets"))
+		data, err := p.lcuService.GetCustomAssets(ctx.Param("assets"))
 		if err != nil {
 			resp.WriteErrRes(ctx, resp.LcuConnectErr.WithField(err.Error()))
 			return
@@ -83,7 +82,7 @@ func GetAssets(p *Shield) gin.HandlerFunc {
 func GetUser(p *Shield) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		summoner := p.currSummoner
-		data, err := lcu.GetRankedData()
+		data, err := p.lcuService.GetRankedData()
 		if err != nil {
 			resp.WriteErrRes(ctx, resp.LcuConnectErr.WithField(err.Error()))
 			return
@@ -121,7 +120,7 @@ func ListGames(p *Shield) gin.HandlerFunc {
 			resp.WriteErrRes(ctx, resp.InputDataErr)
 			return
 		}
-		data, err := lcu.ListGamesByUID(uid, pageNum*pageSizeNum, pageSizeNum)
+		data, err := p.lcuService.ListGamesByUID(uid, pageNum*pageSizeNum, pageSizeNum)
 		if err != nil {
 			resp.WriteErrRes(ctx, resp.LcuConnectErr.WithField(err.Error()))
 			return
@@ -164,7 +163,7 @@ func GetGameDetail(p *Shield) gin.HandlerFunc {
 			return
 		}
 		gameIdNum, _ := strconv.ParseInt(gameId, 10, 64)
-		data, err := lcu.GetGameSummary(gameIdNum)
+		data, err := p.lcuService.GetGameSummary(gameIdNum)
 		if err != nil {
 			resp.WriteErrRes(ctx, resp.LcuConnectErr.WithField(err.Error()))
 			return
@@ -180,7 +179,7 @@ func GetRankHighest(p *Shield) gin.HandlerFunc {
 			resp.WriteErrRes(ctx, resp.InputDataErr)
 			return
 		}
-		data, err := lcu.GetRankedDataByPUUID(puuid)
+		data, err := p.lcuService.GetRankedDataByPUUID(puuid)
 		if err != nil {
 			resp.WriteErrRes(ctx, resp.LcuConnectErr.WithField(err.Error()))
 			return
@@ -206,7 +205,7 @@ func GetMulRankHighest(p *Shield) gin.HandlerFunc {
 				resp.WriteErrRes(ctx, resp.InputDataErr)
 				return
 			}
-			data, err := lcu.GetRankedDataByPUUID(puuid)
+			data, err := p.lcuService.GetRankedDataByPUUID(puuid)
 			if err != nil {
 				resp.WriteErrRes(ctx, resp.LcuConnectErr.WithField(err.Error()))
 				return

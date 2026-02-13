@@ -7,20 +7,21 @@ const (
 	UpdateApi = "https://oss.bigorange.work/lol/latest.json"
 )
 const (
-	ShowVersion     = "show_version"
-	Dev             = "dev"
-	WebAddr         = "web.addr"
-	WebAutoOpen     = "web.auto_open"
-	LogFilepath     = "log.filepath"
-	LogSize         = "log.size"
-	LogBackups      = "log.backups"
-	LogAge          = "log.age"
-	LogCompress     = "log.compress"
-	LogLevel        = "log.level"
-	GameAutoConfirm = "game.auto_confirm"
-	GameAutoPick    = "game.auto_pick"
-	GameAutoBan     = "game.auto_ban"
-	TempButton      = "temp.test"
+	ShowVersion      = "show_version"
+	Dev              = "dev"
+	WebAddr          = "web.addr"
+	WebAutoOpen      = "web.auto_open"
+	LogFilepath      = "log.filepath"
+	LogSize          = "log.size"
+	LogBackups       = "log.backups"
+	LogAge           = "log.age"
+	LogCompress      = "log.compress"
+	LogLevel         = "log.level"
+	GameAutoConfirm  = "game.auto_confirm"
+	GameAutoPick     = "game.auto_pick"
+	GameAutoBan      = "game.auto_ban"
+	TempButton       = "temp.test"
+	LCUTokenFromFile = "lcu.token_file"
 	// GameAutoConfirm = "game.auto_confirm"
 )
 
@@ -38,6 +39,7 @@ func Init(configPath string) {
 	viper.SetDefault(GameAutoBan, 0)
 	viper.SetDefault(WebAddr, ":9365")
 	viper.SetDefault(WebAutoOpen, true)
+	viper.SetDefault(LCUTokenFromFile, false)
 	viper.SetConfigFile(configPath)
 	err := viper.ReadInConfig()
 	if err != nil {

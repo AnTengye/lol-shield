@@ -1,17 +1,18 @@
 package client
 
 import (
+	"github.com/AnTengye/lol-shield/internal/core/lcuapi"
 	"github.com/AnTengye/lol-shield/internal/pkg/lcu"
 	"github.com/AnTengye/lol-shield/internal/pkg/lcu/models"
 	"github.com/AnTengye/lol-shield/internal/pkg/syslog"
 )
 
-func getTeamUsers() (string, []lcu.UserId, error) {
-	conversationID, err := lcu.GetCurrConversationID()
+func getTeamUsers(lcuSvc lcuapi.Service) (string, []lcu.UserId, error) {
+	conversationID, err := lcuSvc.GetCurrConversationID()
 	if err != nil {
 		return "", nil, err
 	}
-	msgList, err := lcu.ListConversationMsg(conversationID)
+	msgList, err := lcuSvc.ListConversationMsg(conversationID)
 	if err != nil {
 		return "", nil, err
 	}

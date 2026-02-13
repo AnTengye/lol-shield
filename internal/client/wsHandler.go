@@ -22,7 +22,7 @@ var (
 )
 
 func (p *Shield) initSkin(summonerId int64) {
-	infos, err := lcu.GetSkinsBySummonerId(summonerId)
+	infos, err := p.lcuService.GetSkinsBySummonerId(summonerId)
 	if err != nil {
 		syslog.L.Error("获取皮肤信息失败", zap.Error(err))
 		return
@@ -109,10 +109,10 @@ loop:
 	autoPickId := viper.GetInt(configs.GameAutoPick)
 	autoBanId := viper.GetInt(configs.GameAutoBan)
 	if autoPickId > 0 && isSelfPick {
-		_ = lcu.PickChampion(autoPickId, userActionID)
+		_ = p.lcuService.PickChampion(autoPickId, userActionID)
 	}
 	if autoBanId > 0 && isSelfBan {
-		_ = lcu.BanChampion(autoBanId, userActionID)
+		_ = p.lcuService.BanChampion(autoBanId, userActionID)
 	}
 	return nil
 }
@@ -126,7 +126,7 @@ func (p *Shield) HandlerLolChatFriendCounts(c *tree.Context) error {
 	if viper.GetBool(configs.TempButton) {
 		_, ok := cache.StaticMap.Load(fmt.Sprintf("friends_count:%s", "e8959476-e72f-5b05-b59a-a05688407ffc"))
 		if !ok {
-			info, err := lcu.GetFriendInfoByPUUID("e8959476-e72f-5b05-b59a-a05688407ffc")
+			info, err := p.lcuService.GetFriendInfoByPUUID("e8959476-e72f-5b05-b59a-a05688407ffc")
 			if err != nil {
 				syslog.L.Errorf("friends err:%v", err)
 				return err
@@ -135,7 +135,7 @@ func (p *Shield) HandlerLolChatFriendCounts(c *tree.Context) error {
 				cache.StaticMap.Store(fmt.Sprintf("friends_count:%s", "e8959476-e72f-5b05-b59a-a05688407ffc"), 1)
 				go func() {
 					time.Sleep(10 * time.Second)
-					err := lcu.SendConversationMsg("检测到目标人物上线，这里是智障助手的自动发言：请看到这条消息时，微信拍拍他，本人挂机中", "e8959476-e72f-5b05-b59a-a05688407ffc@pvp.net")
+					err := p.lcuService.SendConversationMsg("检测到目标人物上线，这里是智障助手的自动发言：请看到这条消息时，微信拍拍他，本人挂机中", "e8959476-e72f-5b05-b59a-a05688407ffc@pvp.net")
 					if err != nil {
 						syslog.L.Errorf("friends auto send err:%v", err)
 					}
@@ -149,7 +149,7 @@ func (p *Shield) HandlerLolChatFriendCounts(c *tree.Context) error {
 func (p *Shield) ChampionSelectStart() {
 	if p.CurLobby == nil {
 		// 获取当前游戏进程
-		session, err := lcu.QueryGameFlowSession()
+		session, err := p.lcuService.QueryGameFlowSession()
 		if err != nil {
 			return
 		}
@@ -168,7 +168,7 @@ func (p *Shield) ChampionSelectStart() {
 	var idList []lcu.UserId
 	for i := 0; i < 3; i++ {
 		// 获取队伍所有用户信息
-		_, idList, _ = getTeamUsers()
+		_, idList, _ = getTeamUsers(p.lcuService)
 		if len(idList) != p.CurLobby.AllowPeople {
 			continue
 		}
@@ -186,7 +186,7 @@ func (p *Shield) ChampionSelectStart() {
 	for retry > 0 {
 		retry--
 		// 查询自己队伍的信息
-		historyMap, userNameMap, err = getGameHistoryByUserList(idList)
+		historyMap, userNameMap, err = getGameHistoryByUserList(p.lcuService, idList)
 		if err != nil {
 			syslog.L.Errorf("查询用户信息失败:%v", err)
 			return
@@ -202,11 +202,11 @@ func (p *Shield) ChampionSelectStart() {
 	}
 }
 func (p Shield) AcceptGame() {
-	_ = lcu.AcceptGame()
+	_ = p.lcuService.AcceptGame()
 }
 func (p *Shield) HandlerInProccessGame() {
 	// 获取当前游戏进程
-	session, err := lcu.QueryGameFlowSession()
+	session, err := p.lcuService.QueryGameFlowSession()
 	if err != nil {
 		return
 	}
@@ -234,14 +234,14 @@ func (p *Shield) HandlerInProccessGame() {
 	}
 	selfTeamUsers, enemyTeamUsers, groups, skinMap := getAllUsersFromSession(selfID, session)
 	// 查询对面的信息
-	historyMap, userNameMap, err := getGameHistoryByUserList(enemyTeamUsers.UserList)
+	historyMap, userNameMap, err := getGameHistoryByUserList(p.lcuService, enemyTeamUsers.UserList)
 	if err != nil {
 		syslog.L.Errorf("查询用户信息失败:%v", err)
 		return
 	}
 	if p.CurGame == nil || len(p.CurGame.AllGameHistory) == 0 {
 		// 查询自己队伍的信息
-		selfHistoryMap, selfUserNameMap, selfErr := getGameHistoryByUserList(selfTeamUsers.UserList)
+		selfHistoryMap, selfUserNameMap, selfErr := getGameHistoryByUserList(p.lcuService, selfTeamUsers.UserList)
 		if selfErr != nil {
 			syslog.L.Errorf("查询用户信息失败:%v", selfErr)
 			return
@@ -300,7 +300,7 @@ func (p *Shield) HandlerLcuSettings(c *tree.Context) error {
 }
 
 func (p *Shield) checkFlow() {
-	flow, err := lcu.GetCurrentFlow()
+	flow, err := p.lcuService.GetCurrentFlow()
 	if err != nil {
 		syslog.L.Error("获取游戏状态失败", zap.Error(err))
 		return

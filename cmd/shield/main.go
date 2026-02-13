@@ -32,15 +32,9 @@ func main() {
 	configs.Init(*configPath)
 	syslog.Init()
 	syslog.L.Infof("配置初始化完成,正在检查更新中...")
+	admin.MustRunWithAdmin()
 	if viper.GetBool(configs.Dev) {
-		err := admin.RunAsAdmin("lcu-info.exe", "")
-		if err != nil {
-			syslog.L.Fatal("请允许管理员权限启动，否则无法获取客户端信息:", err)
-		} else {
-			syslog.L.Infof("子程序已以管理员权限启动")
-		}
-	} else {
-		admin.MustRunWithAdmin()
+		syslog.L.Infof("当前为开发模式: 启动流程仍使用主程序自身提权。")
 	}
 	err := checkUpdate()
 	if err != nil {

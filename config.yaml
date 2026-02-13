@@ -14,5 +14,7 @@ show_version: true
 web:
     addr: :9365
     auto_open: true
+lcu:
+    token_file: false
 temp:
     test: false

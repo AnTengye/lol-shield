@@ -4,13 +4,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/AnTengye/lol-shield/internal/core/lcuapi"
 	"github.com/AnTengye/lol-shield/internal/pkg/lcu"
 	"github.com/AnTengye/lol-shield/internal/pkg/syslog"
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
 )
 
-func getGameHistoryByUserList(userList []lcu.UserId) (historyMap map[string][]lcu.GameHistory, userNameMap map[string]lcu.UserName, err error) {
+func getGameHistoryByUserList(
+	lcuSvc lcuapi.Service, userList []lcu.UserId,
+) (historyMap map[string][]lcu.GameHistory, userNameMap map[string]lcu.UserName, err error) {
 	g := errgroup.Group{}
 	historyMap = map[string][]lcu.GameHistory{}
 	userNameMap = make(map[string]lcu.UserName, 10)
@@ -22,7 +25,7 @@ func getGameHistoryByUserList(userList []lcu.UserId) (historyMap map[string][]lc
 				retry := 3
 				for retry > 0 {
 					retry--
-					tmap, userName, err := gameHistorySync(puuid)
+					tmap, userName, err := gameHistorySync(lcuSvc, puuid)
 					if err != nil {
 						return err
 					}
@@ -30,7 +33,7 @@ func getGameHistoryByUserList(userList []lcu.UserId) (historyMap map[string][]lc
 						continue
 					}
 					if userName.GameName == "" || userName.TagLine == "" {
-						summonerInfo, err := lcu.GetSummonerInfoByPUUID(puuid)
+						summonerInfo, err := lcuSvc.GetSummonerInfoByPUUID(puuid)
 						if err != nil {
 							return err
 						}
@@ -59,9 +62,11 @@ func getGameHistoryByUserList(userList []lcu.UserId) (historyMap map[string][]lc
 	return historyMap, userNameMap, nil
 }
 
-func gameHistorySync(puuid string) (historyMap map[string][]lcu.GameHistory, userName lcu.UserName, err error) {
+func gameHistorySync(lcuSvc lcuapi.Service, puuid string) (
+	historyMap map[string][]lcu.GameHistory, userName lcu.UserName, err error,
+) {
 	historyMap = make(map[string][]lcu.GameHistory, 1)
-	listResp, err := lcu.ListGamesByUID(puuid, 0, 10)
+	listResp, err := lcuSvc.ListGamesByUID(puuid, 0, 10)
 	if err != nil {
 
 		return nil, userName, err

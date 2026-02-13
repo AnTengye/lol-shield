@@ -2,9 +2,11 @@ package client
 
 import (
 	"fmt"
+	"net/http"
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 )
 
 func openWebPage(addr string) error {
@@ -31,4 +33,21 @@ func normalizeWebURL(addr string) string {
 		return "http://127.0.0.1:" + strings.TrimPrefix(trimmed, "0.0.0.0:")
 	}
 	return fmt.Sprintf("http://%s", trimmed)
+}
+
+func waitForWebReady(addr string, timeout time.Duration) bool {
+	targetURL := normalizeWebURL(addr)
+	deadline := time.Now().Add(timeout)
+	client := &http.Client{Timeout: 300 * time.Millisecond}
+	for time.Now().Before(deadline) {
+		resp, err := client.Get(targetURL)
+		if err == nil {
+			_ = resp.Body.Close()
+			if resp.StatusCode >= 200 && resp.StatusCode < 500 {
+				return true
+			}
+		}
+		time.Sleep(120 * time.Millisecond)
+	}
+	return false
 }
