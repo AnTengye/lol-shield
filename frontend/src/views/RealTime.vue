@@ -7,15 +7,18 @@
                 <a-row justify="space-around" v-for="(team, index) in teamInfo" :key="index">
                     <a-col :span="4" v-for="user in team">
                         <div class="container">
-                            <a-image class="image" :width="180" :src="user.skinUrl" style="opacity: 0.7;" />
+                            <a-image class="image" :width="180" :src="user.skinUrl" :preview="false"
+                                style="opacity: 0.7;" />
                             <div class="overlay">
                                 <a-row class="justift-center-container" style="padding-top: 10px;">
-                                    <div :style="{ fontSize: '18px', color: user.teamColor }">
+                                    <button class="player-name" :style="{ fontSize: '18px', color: user.teamColor }"
+                                        @click.stop="openPlayerHistory(user)">
                                         <strong>{{ user.name.gameName }}</strong>
-                                    </div>
-                                    <div :style="{ fontSize: '14px', color: user.teamColor }">
+                                    </button>
+                                    <button class="player-name tag-line" :style="{ fontSize: '14px', color: user.teamColor }"
+                                        @click.stop="openPlayerHistory(user)">
                                         <strong>#{{ user.name.tagLine }}</strong>
-                                    </div>
+                                    </button>
                                 </a-row>
                                 <a-row justify="space-around">
                                     <a-col :span="4" v-show="checkShow('段位')">
@@ -44,7 +47,6 @@
                                         <template #renderItem="{ item }">
                                             <div style="width: 100%;">
                                                 <a-list-item :class="[backgroundColor(item.win)]"
-                                                    @click="goGame(item.gameId)"
                                                     style="padding-left: 12px;padding-right: 12px;">
                                                     <a-skeleton avatar :title="false" :loading="!!initLoading" active>
                                                         <a-list-item-meta :description="item.desc"
@@ -78,6 +80,10 @@
                     </a-checkbox-group>
                 </a-row>
             </div>
+            <a-drawer v-model:open="historyDrawerOpen" placement="right" :width="440" :title="historyDrawerTitle">
+                <GameHistoryList :puuid="selectedPlayer?.puuid || ''" :page-size="20" :show-pagination="false"
+                    :show-result-icon="false" :selectable="false" :auto-select-first="false" />
+            </a-drawer>
 
         </a-spin>
 
@@ -87,12 +93,13 @@
 <script setup>
 import { getAssetsFile } from '@/utils/getAssetsUrl.js'
 import { getGameRunning, getMulGameRankHighest } from '@/api/bog'
-import { onMounted, ref, watch, computed, reactive } from 'vue';
+import { onMounted, ref, watch, computed } from 'vue';
 import { isAramLikeQueue, resolveQueueName } from '@/utils/queue'
 
 import moment from 'moment';
 import dicts from '@/model/dicts/index'
 import { useStore } from 'vuex'
+import GameHistoryList from './components/GameHistoryList.vue';
 let { getters } = useStore()
 const initLoading = ref(false);
 const queueMap = dicts.getDict('queue');
@@ -117,6 +124,16 @@ const backgroundUrl = computed(() => {
 // 多选
 const plainOptions = ['战绩', '段位'];
 const showState = ref(['战绩', '段位']);
+const historyDrawerOpen = ref(false);
+const selectedPlayer = ref(null);
+const historyDrawerTitle = computed(() => {
+    if (!selectedPlayer.value) {
+        return '最近20场对局'
+    }
+    const name = selectedPlayer.value.name?.gameName || '未知玩家'
+    const tagLine = selectedPlayer.value.name?.tagLine || ''
+    return `${name}${tagLine ? '#' + tagLine : ''} 最近20场对局`
+})
 // 监听客户端游戏状态
 watch(() => status.value, (newId, oldId) => {
     gameStarted.value = newId === 2
@@ -152,18 +169,7 @@ const fetchRunningData = () => {
             let historyList = gameHistory[element.puuid]
             if (historyList !== undefined) {
                 historyList.forEach(historyItem => {
-                    const championIcon = import.meta.env.VITE_BACK_URL + '/riot/v1/champion-icons/' + historyItem.championId + '.png'
-                    const desc = moment(historyItem.createTime).format('MM-DD') + ' ' + historyItem.kills + '-' + historyItem.deaths + '-' + historyItem.assists
-                    history.push({
-                        desc: desc,
-                        gameId: historyItem.gameId,
-                        queue: resolveQueueName(queueMap, historyItem.queueId),
-                        championIcon: championIcon,
-                        win: historyItem.win,
-                        assists: historyItem.assists,
-                        kills: historyItem.kills,
-                        deaths: historyItem.deaths,
-                    })
+                    history.push(formatHistoryItem(historyItem))
                     if (historyItem.win) {
                         wins++
                     }
@@ -255,6 +261,24 @@ const winRateColor = (winRate) => {
 const backgroundColor = (win) => {
     return win ? 'gradient-background-w' : 'gradient-background-l';
 }
+const formatHistoryItem = (historyItem) => {
+    const championIcon = import.meta.env.VITE_BACK_URL + '/riot/v1/champion-icons/' + historyItem.championId + '.png'
+    const desc = moment(historyItem.createTime).format('MM-DD HH:mm') + ' ' + historyItem.kills + '-' + historyItem.deaths + '-' + historyItem.assists
+    return {
+        desc: desc,
+        gameId: historyItem.gameId,
+        queue: resolveQueueName(queueMap, historyItem.queueId, historyItem.gameMode),
+        championIcon: championIcon,
+        win: historyItem.win,
+        assists: historyItem.assists,
+        kills: historyItem.kills,
+        deaths: historyItem.deaths,
+    }
+}
+const openPlayerHistory = (user) => {
+    selectedPlayer.value = user
+    historyDrawerOpen.value = true
+}
 </script>
 <style scoped>
 .backgroud-img {
@@ -279,6 +303,11 @@ const backgroundColor = (win) => {
     opacity: 0.7;
 }
 
+.container {
+    position: relative;
+    width: 180px;
+}
+
 .overlay {
     /* display: grid; */
     position: absolute;
@@ -295,6 +324,7 @@ const backgroundColor = (win) => {
     font-size: 20px;
     text-align: center;
     overflow: hidden;
+    z-index: 2;
 }
 
 .justift-center-container {
@@ -302,20 +332,48 @@ const backgroundColor = (win) => {
     place-items: center;
 }
 
+.player-name {
+    cursor: pointer;
+    display: block;
+    width: 170px;
+    margin: 0 auto 2px;
+    padding: 3px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.42);
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+    position: relative;
+    z-index: 3;
+}
+
+.player-name:hover {
+    background: rgba(0, 0, 0, 0.72);
+    border-color: rgba(255, 255, 255, 0.85);
+}
+
+.tag-line {
+    margin-bottom: 6px;
+}
+
 .gradient-background-w {
-    background-color: #e0f7e9;
+    background-color: #8fd6a9;
     width: 200px;
     height: 60px;
     font-size: 20px;
-    opacity: 0.4;
+    opacity: 0.78;
 }
 
 
 .gradient-background-l {
-    background-color: #f7e0e0;
+    background-color: #e39a9a;
     width: 200px;
     height: 60px;
     font-size: 20px;
-    opacity: 0.4;
+    opacity: 0.78;
 }
 </style>

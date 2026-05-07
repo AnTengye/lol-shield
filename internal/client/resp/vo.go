@@ -24,3 +24,11 @@ type GameList struct {
 	Kills      int    `json:"kills"`
 	Deaths     int    `json:"deaths"`
 }
+
+type GameListPage struct {
+	List     []GameList `json:"list"`
+	Page     int        `json:"page"`
+	PageSize int        `json:"pageSize"`
+	Total    int        `json:"total"`
+	HasNext  bool       `json:"hasNext"`
+}

@@ -120,11 +120,37 @@ func ListGames(p *Shield) gin.HandlerFunc {
 			resp.WriteErrRes(ctx, resp.InputDataErr)
 			return
 		}
-		data, err := p.lcuService.ListGamesByUID(uid, pageNum*pageSizeNum, pageSizeNum)
+		begin := pageNum * pageSizeNum
+		syslog.L.Infow(
+			"战绩分页查询请求",
+			"puuid", uid,
+			"page", pageNum,
+			"pageSize", pageSizeNum,
+			"lcuBegIndex", begin,
+			"lcuEndIndex", begin+pageSizeNum-1,
+		)
+		data, err := p.lcuService.ListGamesByUID(uid, begin, pageSizeNum)
 		if err != nil {
+			syslog.L.Errorw(
+				"战绩分页查询LCU调用失败",
+				"puuid", uid,
+				"page", pageNum,
+				"pageSize", pageSizeNum,
+				"error", err,
+			)
 			resp.WriteErrRes(ctx, resp.LcuConnectErr.WithField(err.Error()))
 			return
 		}
+		syslog.L.Infow(
+			"战绩分页查询LCU解析结果",
+			"puuid", uid,
+			"page", pageNum,
+			"pageSize", pageSizeNum,
+			"gameCount", data.Games.GameCount,
+			"gameIndexBegin", data.Games.GameIndexBegin,
+			"gameIndexEnd", data.Games.GameIndexEnd,
+			"returnedGames", len(data.Games.Games),
+		)
 		if len(data.Games.Games) == 0 {
 			resp.WriteErrRes(ctx, resp.DataNotFound.WithField("没有足够的数据"))
 			return
@@ -151,7 +177,13 @@ func ListGames(p *Shield) gin.HandlerFunc {
 			})
 
 		}
-		resp.WriteRespData(ctx, respData)
+		resp.WriteRespData(ctx, resp.GameListPage{
+			List:     respData,
+			Page:     pageNum,
+			PageSize: pageSizeNum,
+			Total:    data.Games.GameCount,
+			HasNext:  len(data.Games.Games) >= pageSizeNum,
+		})
 	}
 }
 

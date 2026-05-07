@@ -255,22 +255,53 @@ func GetRankedData() (*RankedData, error) {
 // 获取比赛记录
 func ListGamesByUID(uuid string, begin, limit int) (*GameListResp, error) {
 	// 因为api是全包，所以要-1
+	end := begin + limit - 1
+	url := fmt.Sprintf(
+		"/lol-match-history/v1/products/lol/%s/matches?begIndex=%d&endIndex=%d",
+		uuid, begin, end,
+	)
+	syslog.L.Infow(
+		"LCU战绩请求",
+		"puuid", uuid,
+		"begIndex", begin,
+		"endIndex", end,
+		"url", url,
+	)
 	bts, err := cli.httpGet(
-		fmt.Sprintf(
-			"/lol-match-history/v1/products/lol/%s/matches?begIndex=%d&endIndex=%d",
-			uuid, begin, begin+limit-1,
-		),
+		url,
 	)
 	if err != nil {
+		syslog.L.Errorw(
+			"LCU战绩请求失败",
+			"puuid", uuid,
+			"begIndex", begin,
+			"endIndex", end,
+			"error", err,
+		)
 		return nil, err
 	}
+	syslog.L.Infow(
+		"LCU战绩原始返回",
+		"puuid", uuid,
+		"begIndex", begin,
+		"endIndex", end,
+		"responseBytes", len(bts),
+		"response", truncateLogString(string(bts), 12000),
+	)
 	data := &GameListResp{}
 	err = json.Unmarshal(bts, data)
 	if err != nil {
-		syslog.L.Info("获取比赛记录", zap.Error(err))
+		syslog.L.Info("获取比赛记录", zap.Error(err), zap.String("response", truncateLogString(string(bts), 12000)))
 		return nil, err
 	}
 	return data, nil
+}
+
+func truncateLogString(s string, limit int) string {
+	if len(s) <= limit {
+		return s
+	}
+	return s[:limit] + "...<truncated>"
 }
 
 // 查询对局详情
