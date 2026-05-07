@@ -6,11 +6,15 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "tauri": "cd .. && frontend\\node_modules\\.bin\\tauri.cmd",
+    "tauri:dev": "cd .. && frontend\\node_modules\\.bin\\tauri.cmd dev",
+    "tauri:build": "cd .. && frontend\\node_modules\\.bin\\tauri.cmd build"
   },
   "dependencies": {
     "@ant-design-vue/pro-layout": "^3.2.5",
     "@ant-design/icons-vue": "^7.0.1",
+    "@tauri-apps/api": "^2.0.0",
     "ant-design-vue": "4.x",
     "axios": "^1.7.2",
     "moment": "^2.30.1",
@@ -20,7 +24,9 @@
     "vuex": "^4.1.0"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",
     "@vitejs/plugin-vue": "^5.0.5",
     "vite": "^5.3.4"
-  }
+  },
+  "packageManager": "pnpm@10.33.4+sha512.1c67b3b359b2d408119ba1ed289f34b8fc3c6873412bec6fd264fbdc82489e510fcbecb9ce9d22dae7f3b76269d8441046014bdca53b9979cd7a561ad631b800"
 }
