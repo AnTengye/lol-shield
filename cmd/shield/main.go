@@ -1,12 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
-	"io"
-	"net/http"
-	"strings"
-	"time"
+	"os"
 
 	"github.com/AnTengye/lol-shield/internal/client"
 	"github.com/AnTengye/lol-shield/internal/pkg/windows/admin"
@@ -16,14 +12,6 @@ import (
 	"github.com/AnTengye/lol-shield/internal/pkg/syslog"
 )
 
-type (
-	VersionInfo struct {
-		Version string `json:"Version"`
-		Url     string `json:"url"`
-		Force   bool   `json:"force"`
-	}
-)
-
 var configPath = flag.String("c", "config.yaml", "配置文件路径")
 
 func main() {
@@ -31,43 +19,16 @@ func main() {
 	// 初始化配置文件
 	configs.Init(*configPath)
 	syslog.Init()
-	syslog.L.Infof("配置初始化完成,正在检查更新中...")
+	syslog.L.Infof("配置初始化完成")
+	if os.Getenv("LOL_SHIELD_TAURI_SIDECAR") == "1" {
+		viper.Set(configs.WebAutoOpen, false)
+	}
 	admin.MustRunWithAdmin()
 	if viper.GetBool(configs.Dev) {
 		syslog.L.Infof("当前为开发模式: 启动流程仍使用主程序自身提权。")
 	}
-	err := checkUpdate()
-	if err != nil {
-		syslog.L.Errorf("检查更新失败:%v", err)
-	}
 	shield := client.NewShield()
-	if err = shield.Run(); err != nil {
+	if err := shield.Run(); err != nil {
 		syslog.L.Fatal(err)
 	}
-}
-
-func checkUpdate() error {
-	http.DefaultClient.Timeout = time.Second * 3
-	resp, err := http.Get(configs.UpdateApi)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	bts, _ := io.ReadAll(resp.Body)
-	updateInfo := &VersionInfo{}
-	if err = json.Unmarshal(bts, updateInfo); err != nil {
-		return err
-	}
-	if updateInfo.Version == "" || updateInfo.Url == "" {
-		return nil
-	}
-	compare := strings.Compare(configs.Version, updateInfo.Version)
-	if compare < 0 {
-		if updateInfo.Force {
-			syslog.L.Infof("存在新版本:%s，需要强制更新", updateInfo.Version)
-			panic("force update")
-		}
-		syslog.L.Infof("存在新版本:%s，建议更新", updateInfo.Version)
-	}
-	return nil
 }

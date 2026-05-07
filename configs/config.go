@@ -3,8 +3,7 @@ package configs
 import "github.com/spf13/viper"
 
 const (
-	Version   = "v1.0.0"
-	UpdateApi = "https://oss.bigorange.work/lol/latest.json"
+	Version = "v1.0.0"
 )
 const (
 	ShowVersion      = "show_version"

@@ -1,7 +1,11 @@
 import axios from 'axios'
 import { VueAxios } from './axios'
 
-const backendBase = (import.meta.env.VITE_BACK_URL || '').replace(/\/$/, '')
+const defaultBackendBase = 'http://127.0.0.1:9365'
+const backendBase = (
+    import.meta.env.VITE_BACK_URL ||
+    (window.__TAURI_INTERNALS__ ? defaultBackendBase : '')
+).replace(/\/$/, '')
 const withBackendBase = (apiPath) => backendBase ? `${backendBase}${apiPath}` : apiPath
 
 // 创建 axios 实例
