@@ -46,6 +46,19 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm --dir frontend install --frozen-lockfile
 
+      - name: Build frontend
+        run: pnpm --dir frontend build
+
+      - name: Sync embedded frontend dist
+        shell: pwsh
+        run: |
+          $embedDist = Join-Path $PWD "internal/client/web/dist"
+          if (Test-Path $embedDist) {
+            Remove-Item -Recurse -Force $embedDist
+          }
+          New-Item -ItemType Directory -Force $embedDist | Out-Null
+          Copy-Item -Path "frontend/dist/*" -Destination $embedDist -Recurse -Force
+
       - name: Build Go sidecar
         shell: pwsh
         run: ./scripts/build-tauri-sidecar.ps1
