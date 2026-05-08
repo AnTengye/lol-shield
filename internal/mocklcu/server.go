@@ -21,7 +21,8 @@ func NewServer(s *Scenario) http.Handler {
 }
 
 func looksLikeAssetPath(requestPath string) bool {
-	return path.Ext(requestPath) != ""
+	return path.Ext(requestPath) != "" && path.Dir(requestPath) != "." && path.Clean(requestPath) != "." &&
+		len(requestPath) > len("/lol-game-data/assets/") && requestPath[:len("/lol-game-data/assets/")] == "/lol-game-data/assets/"
 }
 
 func assetContentType(requestPath string) string {

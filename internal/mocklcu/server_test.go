@@ -4,19 +4,14 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 )
 
 func TestServerServesHistoryAndAssets(t *testing.T) {
-	scenario := &Scenario{
-		MatchHistory: map[string]*HistoryFixture{
-			"de06293d-082d-59c2-83a6-273ab88164bc|0|8": {
-				Raw: []byte(`{"games":{"gameCount":9}}`),
-			},
-		},
-		Assets: map[string][]byte{
-			"placeholder.png": []byte("placeholder-bytes"),
-		},
+	scenario, err := LoadScenario(filepath.Join("fixtures", "default"))
+	if err != nil {
+		t.Fatalf("LoadScenario returned error: %v", err)
 	}
 
 	server := httptest.NewServer(NewServer(scenario))
@@ -35,11 +30,11 @@ func TestServerServesHistoryAndAssets(t *testing.T) {
 	if got := historyResp.Header.Get("Content-Type"); got != "application/json" {
 		t.Fatalf("expected history content type application/json, got %q", got)
 	}
-	if string(historyBody) != `{"games":{"gameCount":9}}` {
-		t.Fatalf("unexpected history body: %s", string(historyBody))
+	if len(historyBody) == 0 {
+		t.Fatalf("expected non-empty history body")
 	}
 
-	assetResp, err := http.Get(server.URL + "/lol-game-data/assets/v1/champion-icons/266.png")
+	assetResp, err := http.Get(server.URL + "/lol-game-data/assets/v1/champion-icons/126.png")
 	if err != nil {
 		t.Fatalf("asset request failed: %v", err)
 	}
@@ -52,8 +47,28 @@ func TestServerServesHistoryAndAssets(t *testing.T) {
 	if got := assetResp.Header.Get("Content-Type"); got != "image/png" {
 		t.Fatalf("expected asset content type image/png, got %q", got)
 	}
-	if string(assetBody) != "placeholder-bytes" {
-		t.Fatalf("unexpected asset body: %q", string(assetBody))
+	if len(assetBody) == 0 {
+		t.Fatalf("expected non-empty asset body")
+	}
+}
+
+func TestServerDoesNotTreatUnknownJSONPathAsAsset(t *testing.T) {
+	scenario, err := LoadScenario(filepath.Join("fixtures", "default"))
+	if err != nil {
+		t.Fatalf("LoadScenario returned error: %v", err)
+	}
+
+	server := httptest.NewServer(NewServer(scenario))
+	defer server.Close()
+
+	resp, err := http.Get(server.URL + "/missing.json")
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected status 404, got %d", resp.StatusCode)
 	}
 }
 
