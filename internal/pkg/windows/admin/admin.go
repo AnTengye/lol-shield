@@ -11,9 +11,11 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-func MustRunWithAdmin() {
+const tauriSidecarFlag = "--tauri-sidecar"
+
+func MustRunWithAdmin(isSidecar bool) {
 	if !IsAdmin() {
-		RunMeElevated()
+		RunMeElevated(isSidecar)
 	}
 }
 
@@ -22,21 +24,47 @@ func MustRunWithAdmin() {
 // It uses the Windows ShellExecute function to launch the executable with the "runas" verb,
 // which prompts the user for administrator privileges. If the user cancels the elevation
 // prompt, the function exits with a status code of -2.
-func RunMeElevated() {
+func RunMeElevated(isSidecar bool) {
 	verb := "runas"
 	exe, _ := os.Executable()
 	cwd, _ := os.Getwd()
-	args := strings.Join(os.Args[1:], " ")
+	args := buildElevatedArgs(os.Args[1:], isSidecar)
 	verbPtr, _ := syscall.UTF16PtrFromString(verb)
 	exePtr, _ := syscall.UTF16PtrFromString(exe)
 	cwdPtr, _ := syscall.UTF16PtrFromString(cwd)
 	argPtr, _ := syscall.UTF16PtrFromString(args)
-	var showCmd int32 = 1 // SW_NORMAL
+	showCmd := int32(syscall.SW_NORMAL)
+	if isSidecar {
+		showCmd = 0 // SW_HIDE
+	}
 	err := windows.ShellExecute(0, verbPtr, exePtr, argPtr, cwdPtr, showCmd)
 	if err != nil {
 		fmt.Println(err)
 	}
 	os.Exit(-2)
+}
+
+func buildElevatedArgs(args []string, isSidecar bool) string {
+	elevatedArgs := append([]string(nil), args...)
+	if isSidecar && !containsArg(elevatedArgs, tauriSidecarFlag) {
+		elevatedArgs = append(elevatedArgs, tauriSidecarFlag)
+	}
+
+	escapedArgs := make([]string, 0, len(elevatedArgs))
+	for _, arg := range elevatedArgs {
+		escapedArgs = append(escapedArgs, syscall.EscapeArg(arg))
+	}
+
+	return strings.Join(escapedArgs, " ")
+}
+
+func containsArg(args []string, target string) bool {
+	for _, arg := range args {
+		if arg == target {
+			return true
+		}
+	}
+	return false
 }
 
 func IsAdmin() bool {

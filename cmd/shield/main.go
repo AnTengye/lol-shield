@@ -13,6 +13,7 @@ import (
 )
 
 var configPath = flag.String("c", "config.yaml", "配置文件路径")
+var tauriSidecar = flag.Bool("tauri-sidecar", false, "标记当前进程由 Tauri sidecar 启动")
 
 func main() {
 	flag.Parse()
@@ -20,7 +21,7 @@ func main() {
 	configs.Init(*configPath)
 	syslog.Init()
 	syslog.L.Infof("配置初始化完成")
-	admin.MustRunWithAdmin()
+	admin.MustRunWithAdmin(*tauriSidecar)
 	if viper.GetBool(configs.Dev) {
 		syslog.L.Infof("当前为开发模式: 启动流程仍使用主程序自身提权。")
 	}

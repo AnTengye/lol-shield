@@ -52,11 +52,9 @@ pub fn run() {
                 .shell()
                 .sidecar("lol-shield")
                 .expect("failed to create lol-shield sidecar command")
-                .env("LOL_SHIELD_TAURI_SIDECAR", "1");
+                .arg("--tauri-sidecar");
 
-            let (_rx, child) = sidecar
-                .spawn()
-                .expect("failed to spawn lol-shield sidecar");
+            let (_rx, child) = sidecar.spawn().expect("failed to spawn lol-shield sidecar");
 
             let state = app.state::<SidecarState>();
             *state.0.lock().expect("sidecar state poisoned") = Some(child);
