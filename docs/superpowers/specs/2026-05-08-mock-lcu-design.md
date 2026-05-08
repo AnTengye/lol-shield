@@ -327,3 +327,16 @@ The first version is successful when:
 - the history page loads and drills into detail
 - images resolve through the same `/riot` path style used in normal operation
 - adding a new fixture-backed endpoint is straightforward and localized
+
+## Implementation Notes
+
+- The repository-backed default scenario lives under `internal/mocklcu/fixtures/default`.
+- The first fixture set is seeded from `C:/Users/wenwo/Downloads/20260507.log`, with supplemental minimal JSON where the captured log was truncated and could not provide a full response body.
+- The mock server now covers the app's current read-paths for:
+  - gameflow phase and session
+  - current summoner and summoner lookup by PUUID
+  - conversations and conversation messages
+  - match history windows and match detail
+  - ranked stats by PUUID and current-ranked-stats derived from the current summoner fixture
+  - asset fallback through `/lol-game-data/assets/*`
+- The Shield mock bootstrap eagerly hydrates current summoner and current in-progress game state so `/v1/history/:uid` and `/v1/game/running` can be exercised without a real client websocket connection.
