@@ -150,6 +150,42 @@ func TestResolveJSONRouteMatchesGameflowPhaseRequest(t *testing.T) {
 	}
 }
 
+func TestResolveJSONRouteMatchesDefaultScenarioRealtimeRoutes(t *testing.T) {
+	scenario, err := LoadScenario(filepath.Join("fixtures", "default"))
+	if err != nil {
+		t.Fatalf("LoadScenario returned error: %v", err)
+	}
+
+	cases := []struct {
+		name     string
+		rawURL   string
+		wantCode int
+	}{
+		{name: "gameflow session", rawURL: "/lol-gameflow/v1/session", wantCode: 200},
+		{name: "current summoner", rawURL: "/lol-summoner/v1/current-summoner", wantCode: 200},
+		{name: "conversation messages", rawURL: "/lol-chat/v1/conversations/champ-select/messages", wantCode: 200},
+		{name: "summoner by puuid", rawURL: "/lol-summoner/v2/summoners/puuid/75126a7d-28e3-5dfa-8874-3a075c1805b1", wantCode: 200},
+		{name: "game detail", rawURL: "/lol-match-history/v1/games/10913327389", wantCode: 200},
+		{name: "ranked stats by puuid", rawURL: "/lol-ranked/v1/ranked-stats/de06293d-082d-59c2-83a6-273ab88164bc", wantCode: 200},
+		{name: "current ranked stats", rawURL: "/lol-ranked/v1/current-ranked-stats", wantCode: 200},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			body, contentType, status := ResolveRequest(scenario, tc.rawURL)
+			if status != tc.wantCode {
+				t.Fatalf("expected status %d, got %d", tc.wantCode, status)
+			}
+			if contentType != "application/json" {
+				t.Fatalf("expected json content type, got %q", contentType)
+			}
+			if len(body) == 0 {
+				t.Fatalf("expected non-empty response body")
+			}
+		})
+	}
+}
+
 func TestResolveJSONRouteRejectsNonMatchesHistoryRequest(t *testing.T) {
 	scenario := &Scenario{
 		MatchHistory: map[string]*HistoryFixture{
