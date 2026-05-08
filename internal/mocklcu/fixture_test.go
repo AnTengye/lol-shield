@@ -32,6 +32,61 @@ func TestLoadScenarioBuildsHistoryLookupKeys(t *testing.T) {
 	}
 }
 
+func TestLoadScenarioLoadsDefaultRepositoryFixtures(t *testing.T) {
+	scenario, err := LoadScenario(filepath.Join("fixtures", "default"))
+	if err != nil {
+		t.Fatalf("LoadScenario returned error: %v", err)
+	}
+
+	if len(scenario.GameflowPhase) == 0 {
+		t.Fatalf("expected non-empty gameflow phase fixture")
+	}
+	if len(scenario.GameflowSession) == 0 {
+		t.Fatalf("expected non-empty gameflow session fixture")
+	}
+	if len(scenario.CurrentSummoner) == 0 {
+		t.Fatalf("expected non-empty current summoner fixture")
+	}
+	if len(scenario.Conversations) == 0 {
+		t.Fatalf("expected non-empty conversations fixture")
+	}
+	if len(scenario.ConversationMessages["champ-select"]) == 0 {
+		t.Fatalf("expected champ-select conversation messages fixture")
+	}
+	if len(scenario.RankedStats["de06293d-082d-59c2-83a6-273ab88164bc"]) == 0 {
+		t.Fatalf("expected ranked stats fixture for local player")
+	}
+	if len(scenario.RankedStats["75126a7d-28e3-5dfa-8874-3a075c1805b1"]) == 0 {
+		t.Fatalf("expected ranked stats fixture for secondary player")
+	}
+	if len(scenario.SummonersByPUUID["de06293d-082d-59c2-83a6-273ab88164bc"]) == 0 {
+		t.Fatalf("expected summoner fixture for local player")
+	}
+	if len(scenario.SummonersByPUUID["75126a7d-28e3-5dfa-8874-3a075c1805b1"]) == 0 {
+		t.Fatalf("expected summoner fixture for secondary player")
+	}
+
+	history, ok := scenario.MatchHistory["75126a7d-28e3-5dfa-8874-3a075c1805b1|0|9"]
+	if !ok {
+		t.Fatalf("expected history fixture for second player")
+	}
+	if len(history.Raw) == 0 {
+		t.Fatalf("expected non-empty history fixture payload")
+	}
+
+	detail, ok := scenario.GameDetails[10913327389]
+	if !ok {
+		t.Fatalf("expected game detail fixture for 10913327389")
+	}
+	if len(detail) == 0 {
+		t.Fatalf("expected non-empty game detail fixture payload")
+	}
+
+	if len(scenario.Assets["placeholder.png"]) == 0 {
+		t.Fatalf("expected placeholder asset fixture")
+	}
+}
+
 func TestLoadScenarioFailsOnUnexpectedFixtureLayout(t *testing.T) {
 	scenarioDir := t.TempDir()
 

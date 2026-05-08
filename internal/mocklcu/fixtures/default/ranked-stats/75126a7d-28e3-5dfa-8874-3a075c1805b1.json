@@ -1,0 +1,28 @@
+{
+  "highestRankedEntry": {
+    "division": "IV",
+    "leaguePoints": 12,
+    "losses": 9,
+    "queueType": "RANKED_SOLO_5x5",
+    "tier": "GOLD",
+    "wins": 11
+  },
+  "highestRankedEntrySR": {
+    "division": "IV",
+    "leaguePoints": 12,
+    "losses": 9,
+    "queueType": "RANKED_SOLO_5x5",
+    "tier": "GOLD",
+    "wins": 11
+  },
+  "queueMap": {
+    "CHERRY": {
+      "division": "",
+      "leaguePoints": 0,
+      "losses": 0,
+      "queueType": "CHERRY",
+      "tier": "UNRANKED",
+      "wins": 0
+    }
+  }
+}

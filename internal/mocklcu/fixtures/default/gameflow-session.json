@@ -1,0 +1,52 @@
+{
+  "gameData": {
+    "gameId": 10913327389,
+    "playerChampionSelections": [
+      {
+        "championId": 126,
+        "selectedSkinIndex": 0,
+        "spell1Id": 32,
+        "spell2Id": 4,
+        "summonerInternalName": "Jerry"
+      },
+      {
+        "championId": 21,
+        "selectedSkinIndex": 0,
+        "spell1Id": 4,
+        "spell2Id": 32,
+        "summonerInternalName": "肚子饿喝水"
+      }
+    ],
+    "queue": {
+      "id": 2400,
+      "type": "MATCHED_GAME"
+    },
+    "teamOne": [
+      {
+        "championId": 126,
+        "profileIconId": 6715,
+        "puuid": "de06293d-082d-59c2-83a6-273ab88164bc",
+        "summonerId": 4105292787,
+        "summonerInternalName": "Jerry",
+        "summonerName": "Jerry",
+        "teamParticipantId": 1
+      },
+      {
+        "championId": 21,
+        "profileIconId": 7,
+        "puuid": "75126a7d-28e3-5dfa-8874-3a075c1805b1",
+        "summonerId": 2931597947,
+        "summonerInternalName": "肚子饿喝水",
+        "summonerName": "肚子饿喝水",
+        "teamParticipantId": 2
+      }
+    ],
+    "teamTwo": []
+  },
+  "map": {
+    "id": 12
+  },
+  "phase": "InProgress",
+  "gameMode": "ARAM",
+  "queueId": 2400
+}

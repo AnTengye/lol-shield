@@ -1,0 +1,28 @@
+{
+  "highestRankedEntry": {
+    "division": "II",
+    "leaguePoints": 75,
+    "losses": 18,
+    "queueType": "RANKED_SOLO_5x5",
+    "tier": "PLATINUM",
+    "wins": 20
+  },
+  "highestRankedEntrySR": {
+    "division": "II",
+    "leaguePoints": 75,
+    "losses": 18,
+    "queueType": "RANKED_SOLO_5x5",
+    "tier": "PLATINUM",
+    "wins": 20
+  },
+  "queueMap": {
+    "CHERRY": {
+      "division": "",
+      "leaguePoints": 0,
+      "losses": 0,
+      "queueType": "CHERRY",
+      "tier": "UNRANKED",
+      "wins": 0
+    }
+  }
+}
