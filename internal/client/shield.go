@@ -120,10 +120,14 @@ func NewShieldWithLCU(lcuSvc lcuapi.Service) *Shield {
 		lcuSvc = lcuapi.New()
 	}
 	p := &Shield{
-		ctx:        ctx,
-		cancel:     cancel,
-		mu:         &sync.Mutex{},
-		GameState:  models.GameFlowNone,
+		ctx:       ctx,
+		cancel:    cancel,
+		mu:        &sync.Mutex{},
+		GameState: models.GameFlowNone,
+		CurInfo: StatusInfo{
+			Status:     STWaiting,
+			GameStatus: GSWaiting,
+		},
 		wsRouter:   tree2.NewEngine(),
 		lcuService: lcuSvc,
 	}
@@ -145,7 +149,11 @@ func NewServer(addr string, p *Shield) *http.Server {
 }
 
 func (p *Shield) Run() error {
-	go p.MonitorStart()
+	if viper.GetBool(configs.MockLCUEnabled) {
+		go p.bootstrapMockState()
+	} else {
+		go p.MonitorStart()
+	}
 	syslog.L.Infof("等待客户端连接中...")
 	return p.notifyQuit()
 }
@@ -328,6 +336,33 @@ func (p *Shield) Notice() {
 		return
 	}
 	p.webWs.Write(p.CurInfo.ToData())
+}
+
+func (p *Shield) bootstrapMockState() {
+	currSummoner, err := p.lcuService.GetCurrSummoner()
+	if err != nil {
+		syslog.L.Fatalf("mock lcu bootstrap failed: %v", err)
+	}
+	p.currSummoner = currSummoner
+	p.CurInfo = StatusInfo{
+		Status:     STOnline,
+		GameStatus: GSStarted,
+		Uid:        currSummoner.SummonerId,
+		Uuid:       currSummoner.Puuid,
+	}
+	flow, err := p.lcuService.GetCurrentFlow()
+	if err != nil {
+		syslog.L.Warnf("mock flow bootstrap failed: %v", err)
+		p.Notice()
+		return
+	}
+	p.updateGameState(flow)
+	if flow == models.GameFlowInProgress {
+		p.HandlerInProccessGame()
+	} else {
+		p.onGameFlowUpdate(flow)
+	}
+	p.Notice()
 }
 
 func (p *Shield) reset() {

@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/AnTengye/lol-shield/internal/client"
+	"github.com/AnTengye/lol-shield/internal/core/lcuapi"
 	"github.com/AnTengye/lol-shield/internal/pkg/windows/admin"
 	"github.com/spf13/viper"
 
@@ -27,7 +28,13 @@ func main() {
 	if viper.GetBool(configs.Dev) {
 		syslog.L.Infof("当前为开发模式: 启动流程仍使用主程序自身提权。")
 	}
-	shield := client.NewShield()
+	var lcuSvc lcuapi.Service
+	if viper.GetBool(configs.MockLCUEnabled) {
+		lcuSvc = lcuapi.NewHTTPService(viper.GetString(configs.MockLCUBaseURL))
+	} else {
+		lcuSvc = lcuapi.New()
+	}
+	shield := client.NewShieldWithLCU(lcuSvc)
 	if err := shield.Run(); err != nil {
 		syslog.L.Fatal(err)
 	}

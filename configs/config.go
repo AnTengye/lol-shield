@@ -21,6 +21,9 @@ const (
 	GameAutoBan      = "game.auto_ban"
 	TempButton       = "temp.test"
 	LCUTokenFromFile = "lcu.token_file"
+	MockLCUEnabled   = "mock_lcu.enabled"
+	MockLCUBaseURL   = "mock_lcu.base_url"
+	MockLCUScenario  = "mock_lcu.scenario"
 	// GameAutoConfirm = "game.auto_confirm"
 )
 
@@ -39,6 +42,9 @@ func Init(configPath string) {
 	viper.SetDefault(WebAddr, ":9365")
 	viper.SetDefault(WebAutoOpen, true)
 	viper.SetDefault(LCUTokenFromFile, false)
+	viper.SetDefault(MockLCUEnabled, false)
+	viper.SetDefault(MockLCUBaseURL, "http://127.0.0.1:19365")
+	viper.SetDefault(MockLCUScenario, "default")
 	viper.SetConfigFile(configPath)
 	err := viper.ReadInConfig()
 	if err != nil {
