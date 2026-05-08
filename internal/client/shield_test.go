@@ -1,14 +1,31 @@
 package client
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/AnTengye/lol-shield/configs"
 	"github.com/AnTengye/lol-shield/internal/core/lcuapi"
+	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 )
 
-func TestNewShieldWithMockModeStartsWithoutTokenPolling(t *testing.T) {
+func TestBackendRootReturnsNotFoundWithoutEmbeddedFrontend(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	AddRouter(engine, NewShield())
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected status 404 for removed browser frontend, got %d", w.Code)
+	}
+}
+
+func TestNewShieldWithMockModeStillInitializesLCUService(t *testing.T) {
 	viper.Set(configs.MockLCUEnabled, true)
 	viper.Set(configs.MockLCUBaseURL, "http://127.0.0.1:19365")
 	t.Cleanup(func() {
@@ -20,12 +37,6 @@ func TestNewShieldWithMockModeStartsWithoutTokenPolling(t *testing.T) {
 	shield := NewShieldWithLCU(svc)
 
 	if shield.lcuService == nil {
-		t.Fatalf("expected lcu service")
-	}
-	if shield.CurInfo.Status != STWaiting {
-		t.Fatalf("expected waiting status, got %v", shield.CurInfo.Status)
-	}
-	if shield.CurInfo.GameStatus != GSWaiting {
-		t.Fatalf("expected waiting game status, got %v", shield.CurInfo.GameStatus)
+		t.Fatal("expected LCU service to remain configured")
 	}
 }

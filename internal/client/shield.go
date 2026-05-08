@@ -182,19 +182,6 @@ func (p *Shield) notifyQuit() error {
 			return nil
 		},
 	)
-	if viper.GetBool(configs.WebAutoOpen) {
-		go func() {
-			if !waitForWebReady(webAddr, 3*time.Second) {
-				syslog.L.Warnf("页面未在预期时间内就绪，跳过自动打开: %s", normalizeWebURL(webAddr))
-				return
-			}
-			if err := openWebPage(webAddr); err != nil {
-				syslog.L.Warnf("自动打开浏览器失败: %v", err)
-				return
-			}
-			syslog.L.Infof("已自动打开页面: %s", normalizeWebURL(webAddr))
-		}()
-	}
 	// http-shutdown
 	g.Go(
 		func() error {

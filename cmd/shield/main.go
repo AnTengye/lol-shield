@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"os"
 
 	"github.com/AnTengye/lol-shield/internal/client"
 	"github.com/AnTengye/lol-shield/internal/core/lcuapi"
@@ -21,9 +20,6 @@ func main() {
 	configs.Init(*configPath)
 	syslog.Init()
 	syslog.L.Infof("配置初始化完成")
-	if os.Getenv("LOL_SHIELD_TAURI_SIDECAR") == "1" {
-		viper.Set(configs.WebAutoOpen, false)
-	}
 	admin.MustRunWithAdmin()
 	if viper.GetBool(configs.Dev) {
 		syslog.L.Infof("当前为开发模式: 启动流程仍使用主程序自身提权。")
