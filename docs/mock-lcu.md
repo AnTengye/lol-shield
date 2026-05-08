@@ -1,8 +1,8 @@
-# Mock LCU Usage
+# Mock LCU Desktop Usage
 
 ## What it gives you
 
-`mock-lcu` lets `lol-shield` run against a fixture-backed local HTTP service instead of a live League Client. The current default scenario is a stable `InProgress` scene with match history, match detail, ranked data, current summoner data, and placeholder assets.
+`mock-lcu` lets the Tauri desktop app run against a fixture-backed local HTTP service instead of a live League Client. The current default scenario is a stable `InProgress` scene with match history, match detail, ranked data, current summoner data, and placeholder assets.
 
 ## Start the mock service
 
@@ -18,7 +18,7 @@ Optional:
 go run ./cmd/mock-lcu -addr 127.0.0.1:20001 -scenario-dir internal/mocklcu/fixtures/default
 ```
 
-## Enable mock mode in shield
+## Enable mock mode for the desktop sidecar
 
 Set these config values:
 
@@ -29,20 +29,33 @@ mock_lcu:
   scenario: default
 ```
 
-Then start shield normally:
+For desktop runs, the sidecar should receive the same values:
 
 ```bash
-go run ./cmd/shield -c config.yaml
+go run ./cmd/shield -c config.yaml --tauri-sidecar
 ```
 
-## Suggested developer loop
+## Suggested desktop developer loop
 
 1. Start `mock-lcu`.
-2. Start `shield` with `mock_lcu.enabled=true`.
-3. Open the app and verify:
+2. Build the desktop sidecar:
+   `./scripts/build-tauri-sidecar.ps1`
+3. Launch the desktop app:
+   `corepack pnpm --dir frontend tauri:dev`
+4. Verify inside the desktop-backed flow:
    - `/v1/history/:uid` returns paged history
    - `/v1/game/running` returns the in-progress scene
    - `/riot/*assets` resolves through the same backend path used in normal mode
+
+## Backend-only verification path
+
+If you only want to validate the local APIs without opening the desktop shell, run:
+
+```bash
+go run ./cmd/shield -c config.yaml --tauri-sidecar
+```
+
+Then verify the same `/v1/history/:uid`, `/v1/game/running`, and `/riot/*assets` endpoints against the local service.
 
 ## Current fixture notes
 
@@ -55,4 +68,6 @@ go run ./cmd/shield -c config.yaml
 ```bash
 go test ./internal/mocklcu ./internal/core/lcuapi ./internal/client
 go test ./cmd/mock-lcu
+./scripts/build-tauri-sidecar.ps1
+corepack pnpm --dir frontend tauri:build
 ```
