@@ -1,7 +1,9 @@
 package mocklcu
 
 import (
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -30,6 +32,30 @@ func TestLoadScenarioBuildsHistoryLookupKeys(t *testing.T) {
 	}
 }
 
+func TestLoadScenarioFailsOnUnexpectedFixtureLayout(t *testing.T) {
+	scenarioDir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(scenarioDir, "gameflow-phase.json"), []byte(`"InProgress"`), 0o644); err != nil {
+		t.Fatalf("write phase fixture: %v", err)
+	}
+
+	badPath := filepath.Join(scenarioDir, "match-history", "products", "bad.json")
+	if err := os.MkdirAll(filepath.Dir(badPath), 0o755); err != nil {
+		t.Fatalf("mkdir bad fixture dir: %v", err)
+	}
+	if err := os.WriteFile(badPath, []byte(`{"games":{"gameCount":1}}`), 0o644); err != nil {
+		t.Fatalf("write bad fixture: %v", err)
+	}
+
+	_, err := LoadScenario(scenarioDir)
+	if err == nil {
+		t.Fatalf("expected malformed fixture layout error")
+	}
+	if !strings.Contains(err.Error(), filepath.ToSlash(badPath)) && !strings.Contains(err.Error(), badPath) {
+		t.Fatalf("expected error to mention offending path %q, got %v", badPath, err)
+	}
+}
+
 func TestResolveJSONRouteMatchesHistoryRequest(t *testing.T) {
 	scenario := &Scenario{
 		GameflowPhase: []byte(`"InProgress"`),
@@ -48,6 +74,23 @@ func TestResolveJSONRouteMatchesHistoryRequest(t *testing.T) {
 		t.Fatalf("expected json content type, got %q", contentType)
 	}
 	if string(body) != `{"games":{"gameCount":9}}` {
+		t.Fatalf("unexpected body: %s", string(body))
+	}
+}
+
+func TestResolveJSONRouteMatchesGameflowPhaseRequest(t *testing.T) {
+	scenario := &Scenario{
+		GameflowPhase: []byte(`"InProgress"`),
+	}
+
+	body, contentType, status := ResolveRequest(scenario, "/lol-gameflow/v1/gameflow-phase")
+	if status != 200 {
+		t.Fatalf("expected status 200, got %d", status)
+	}
+	if contentType != "application/json" {
+		t.Fatalf("expected json content type, got %q", contentType)
+	}
+	if string(body) != `"InProgress"` {
 		t.Fatalf("unexpected body: %s", string(body))
 	}
 }

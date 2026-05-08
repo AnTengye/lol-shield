@@ -2,6 +2,7 @@ package mocklcu
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,12 +43,12 @@ func LoadScenario(dir string) (*Scenario, error) {
 
 		parts := strings.Split(filepath.ToSlash(rel), "/")
 		if len(parts) != 2 {
-			return nil
+			return fmt.Errorf("unexpected match-history fixture path: %s", filepath.ToSlash(path))
 		}
 
 		rangeKey, ok := historyRangeKey(parts[1])
 		if !ok {
-			return nil
+			return fmt.Errorf("unexpected match-history fixture filename: %s", filepath.ToSlash(path))
 		}
 
 		raw, err := os.ReadFile(path)
