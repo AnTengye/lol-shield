@@ -46,6 +46,33 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm --dir frontend install --frozen-lockfile
 
+      - name: Apply release version from tag
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = if ($tag.StartsWith("v")) { $tag.Substring(1) } else { $tag }
+          Write-Host "Using release version $version from tag $tag"
+
+          $tauriConfigPath = Join-Path $PWD "src-tauri/tauri.conf.json"
+          $tauriConfig = Get-Content -Raw $tauriConfigPath | ConvertFrom-Json
+          $tauriConfig.version = $version
+          $tauriConfig | ConvertTo-Json -Depth 100 | Set-Content $tauriConfigPath
+
+          $cargoTomlPath = Join-Path $PWD "src-tauri/Cargo.toml"
+          $updated = $false
+          $cargoToml = Get-Content $cargoTomlPath | ForEach-Object {
+            if (-not $updated -and $_ -match '^version = "') {
+              $updated = $true
+              "version = `"$version`""
+            } else {
+              $_
+            }
+          }
+          if (-not $updated) {
+            throw "Failed to update src-tauri/Cargo.toml version"
+          }
+          Set-Content $cargoTomlPath $cargoToml
+
       - name: Build Go sidecar
         shell: pwsh
         run: ./scripts/build-tauri-sidecar.ps1
