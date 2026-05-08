@@ -5,5 +5,7 @@
 /target
 /src-tauri/target
 lcu-info.exe
-internal/client/web/dist
+internal/client/web/dist/*
+!internal/client/web/dist/
+!internal/client/web/dist/index.html
 *.exe
