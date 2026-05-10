@@ -1,11 +1,11 @@
 package client
 
 import (
-	"net/http"
 	"strconv"
 
 	"github.com/AnTengye/lol-shield/configs"
 	"github.com/AnTengye/lol-shield/internal/client/resp"
+	"github.com/AnTengye/lol-shield/internal/pkg/lcu"
 	"github.com/AnTengye/lol-shield/internal/pkg/lcu/models"
 	"github.com/AnTengye/lol-shield/internal/pkg/syslog"
 	"github.com/gin-gonic/gin"
@@ -69,13 +69,22 @@ func GetLcu(p *Shield) gin.HandlerFunc {
 
 func GetAssets(p *Shield) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		data, err := p.lcuService.GetCustomAssets(ctx.Param("assets"))
+		assetPath := ctx.Param("assets")
+		asset, err := p.lcuService.GetCustomAsset(assetPath)
 		if err != nil {
+			syslog.L.Errorw("资源代理请求失败", "path", assetPath, "error", err)
 			resp.WriteErrRes(ctx, resp.LcuConnectErr.WithField(err.Error()))
 			return
 		}
 		ctx.Header("Cache-Control", "public, max-age=31536000")
-		ctx.Data(http.StatusOK, "image/png", data)
+		if asset.ContentType == "" {
+			asset.ContentType = lcu.DetectAssetContentType(assetPath, asset.Body)
+		}
+		if asset.ContentType != "" {
+			ctx.Header("Content-Type", asset.ContentType)
+		}
+		ctx.Status(asset.StatusCode)
+		_, _ = ctx.Writer.Write(asset.Body)
 	}
 }
 
@@ -106,8 +115,20 @@ func ListGames(p *Shield) gin.HandlerFunc {
 		uid := ctx.Param("uid")
 		page := ctx.DefaultQuery("page", "0")
 		pageSize := ctx.DefaultQuery("pageSize", "10")
-		pageNum, _ := strconv.Atoi(page)
-		pageSizeNum, _ := strconv.Atoi(pageSize)
+		pageNum, err := strconv.Atoi(page)
+		if err != nil {
+			resp.WriteErrRes(ctx, resp.InputDataErr.WithField("page"))
+			return
+		}
+		pageSizeNum, err := strconv.Atoi(pageSize)
+		if err != nil {
+			resp.WriteErrRes(ctx, resp.InputDataErr.WithField("pageSize"))
+			return
+		}
+		if pageSizeNum <= 0 {
+			resp.WriteErrRes(ctx, resp.InputDataErr.WithField("pageSize"))
+			return
+		}
 		if pageSizeNum > 20 {
 			resp.WriteErrRes(ctx, resp.InputDataErr.WithField("pageSize不能大于20"))
 			return
@@ -155,8 +176,9 @@ func ListGames(p *Shield) gin.HandlerFunc {
 			resp.WriteErrRes(ctx, resp.DataNotFound.WithField("没有足够的数据"))
 			return
 		}
-		respData := make([]resp.GameList, 0, len(data.Games.Games))
-		for _, game := range data.Games.Games {
+		pagedGames := sliceRequestedGames(data.Games.Games, data.Games.GameIndexBegin, begin, pageSizeNum)
+		respData := make([]resp.GameList, 0, len(pagedGames))
+		for _, game := range pagedGames {
 			if len(game.Participants) == 0 {
 				syslog.L.Errorf("没有参与比赛的数据", zap.Int64("gameId", game.GameId))
 				//resp.WriteErrRes(ctx, resp.DataNotFound.WithField("没有足够的队列"))
@@ -182,9 +204,27 @@ func ListGames(p *Shield) gin.HandlerFunc {
 			Page:     pageNum,
 			PageSize: pageSizeNum,
 			Total:    data.Games.GameCount,
-			HasNext:  len(data.Games.Games) >= pageSizeNum,
+			HasNext:  begin+len(respData) < data.Games.GameCount,
 		})
 	}
+}
+
+func sliceRequestedGames(games []lcu.GameInfo, windowBegin, requestedBegin, pageSize int) []lcu.GameInfo {
+	if len(games) == 0 || pageSize <= 0 {
+		return nil
+	}
+	start := requestedBegin - windowBegin
+	if start < 0 {
+		start = 0
+	}
+	if start >= len(games) {
+		return nil
+	}
+	end := start + pageSize
+	if end > len(games) {
+		end = len(games)
+	}
+	return games[start:end]
 }
 
 func GetGameDetail(p *Shield) gin.HandlerFunc {

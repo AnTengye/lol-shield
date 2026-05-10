@@ -28,7 +28,7 @@ type Service interface {
 	GetFriendInfoByPUUID(puuid string) (*lcu.FriendInfo, error)
 	SendConversationMsg(msg string, conversationID string) error
 
-	GetCustomAssets(path string) ([]byte, error)
+	GetCustomAsset(path string) (*lcu.AssetResponse, error)
 	GetRankedData() (*lcu.RankedData, error)
 	GetGameSummary(gameID int64) (*lcu.GameSummary, error)
 	GetRankedDataByPUUID(puuid string) (*lcu.RankedData, error)
@@ -104,8 +104,8 @@ func (s *defaultService) SendConversationMsg(msg string, conversationID string) 
 	return lcu.SendConversationMsg(msg, conversationID)
 }
 
-func (s *defaultService) GetCustomAssets(path string) ([]byte, error) {
-	return lcu.GetCustomAssets(path)
+func (s *defaultService) GetCustomAsset(path string) (*lcu.AssetResponse, error) {
+	return lcu.GetCustomAsset(path)
 }
 
 func (s *defaultService) GetRankedData() (*lcu.RankedData, error) {

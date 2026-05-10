@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -228,13 +230,33 @@ func QueryGameFlowSession() (*GameFlowSession, error) {
 }
 
 // 获取自定义资源
-func GetCustomAssets(path string) ([]byte, error) {
+func GetCustomAsset(path string) (*AssetResponse, error) {
 	// check cli
 	if cli == nil {
 		return nil, errors.New("lcu client not init")
 	}
-	assetsData, err := cli.httpGet("/lol-game-data/assets" + path)
-	return assetsData, err
+	req, err := http.NewRequest(http.MethodGet, cli.baseUrl+"/lol-game-data/assets"+path, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := httpCli.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	assetsData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	contentType := resp.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = DetectAssetContentType(path, assetsData)
+	}
+	return &AssetResponse{
+		StatusCode:  resp.StatusCode,
+		ContentType: contentType,
+		Body:        assetsData,
+	}, nil
 }
 
 // 获取排位数据

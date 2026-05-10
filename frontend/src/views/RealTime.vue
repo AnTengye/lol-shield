@@ -93,6 +93,7 @@
 <script setup>
 import { getAssetsFile } from '@/utils/getAssetsUrl.js'
 import { getGameRunning, getMulGameRankHighest } from '@/api/bog'
+import { buildRuntimeRiotAssetUrl } from '@/utils/backend'
 import { onMounted, ref, watch, computed } from 'vue';
 import { isAramLikeQueue, resolveQueueName } from '@/utils/queue'
 
@@ -185,9 +186,9 @@ const fetchRunningData = () => {
                 nameInfo = nameMap[element.puuid]
             }
             let skinId = teamSkinMap[element.puuid]
-            let skinUrl = import.meta.env.VITE_BACK_URL + '/riot'
+            let skinUrl = buildRuntimeRiotAssetUrl('')
             if (skinId !== undefined && skinMap[skinId.skinId] !== undefined) {
-                skinUrl = skinUrl + skinMap[skinId.skinId].loadScreenPath
+                skinUrl = buildRuntimeRiotAssetUrl(skinMap[skinId.skinId].loadScreenPath)
             }
             return {
                 summonerId: element.summonerId,
@@ -262,7 +263,7 @@ const backgroundColor = (win) => {
     return win ? 'gradient-background-w' : 'gradient-background-l';
 }
 const formatHistoryItem = (historyItem) => {
-    const championIcon = import.meta.env.VITE_BACK_URL + '/riot/v1/champion-icons/' + historyItem.championId + '.png'
+    const championIcon = buildRuntimeRiotAssetUrl(`/v1/champion-icons/${historyItem.championId}.png`)
     const desc = moment(historyItem.createTime).format('MM-DD HH:mm') + ' ' + historyItem.kills + '-' + historyItem.deaths + '-' + historyItem.assists
     return {
         desc: desc,

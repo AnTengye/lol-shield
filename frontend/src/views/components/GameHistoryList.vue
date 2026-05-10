@@ -34,6 +34,7 @@ import { createFromIconfontCN } from '@ant-design/icons-vue';
 import moment from 'moment';
 import { getGameList } from '@/api/bog'
 import dicts from '@/model/dicts/index'
+import { buildRuntimeRiotAssetUrl } from '@/utils/backend'
 import { resolveQueueName } from '@/utils/queue'
 import Pagination from './Pagination.vue';
 
@@ -88,7 +89,7 @@ const totalPages = computed(() => {
 });
 
 const formatHistoryItem = (historyItem) => {
-    const championIcon = import.meta.env.VITE_BACK_URL + '/riot/v1/champion-icons/' + historyItem.championId + '.png'
+    const championIcon = buildRuntimeRiotAssetUrl(`/v1/champion-icons/${historyItem.championId}.png`)
     const desc = moment(historyItem.createTime).format('MM-DD HH:mm') + '  KDA:' + historyItem.kills + '-' + historyItem.deaths + '-' + historyItem.assists
     return {
         desc: desc,
