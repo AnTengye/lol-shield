@@ -1,17 +1,11 @@
 import axios from 'axios'
 import { VueAxios } from './axios'
-
-const defaultBackendBase = 'http://127.0.0.1:9365'
-const backendBase = (
-    import.meta.env.VITE_BACK_URL ||
-    (window.__TAURI_INTERNALS__ ? defaultBackendBase : '')
-).replace(/\/$/, '')
-const withBackendBase = (apiPath) => backendBase ? `${backendBase}${apiPath}` : apiPath
+import { buildRuntimeBackendUrl } from './backend'
 
 // 创建 axios 实例
 const request = axios.create({
     // API 请求的默认前缀
-    baseURL: withBackendBase('/v1')
+    baseURL: buildRuntimeBackendUrl('/v1')
     // baseURL: 'http://127.0.0.1:4523/m1/4930153-4587449-7bd90a27'
 })
 
@@ -21,7 +15,7 @@ const requestMock = axios.create({
 
 const localriotapi = axios.create({
     // API 请求的默认前缀
-    baseURL: withBackendBase('/riot')
+    baseURL: buildRuntimeBackendUrl('/riot')
 })
 
 // 异常拦截处理器

@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
+	"path/filepath"
 )
 
 const (
@@ -30,6 +32,11 @@ type (
 		port    int
 		authPwd string
 		baseUrl string
+	}
+	AssetResponse struct {
+		StatusCode  int
+		ContentType string
+		Body        []byte
 	}
 )
 
@@ -93,4 +100,14 @@ func (cli client) getWithIO(url string) (io.Reader, int64, error) {
 		return nil, 0, err
 	}
 	return resp.Body, resp.ContentLength, nil
+}
+
+func DetectAssetContentType(assetPath string, body []byte) string {
+	if contentType := mime.TypeByExtension(filepath.Ext(assetPath)); contentType != "" {
+		return contentType
+	}
+	if len(body) > 0 {
+		return http.DetectContentType(body)
+	}
+	return "application/octet-stream"
 }

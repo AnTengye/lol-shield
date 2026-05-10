@@ -1,10 +1,7 @@
 import { listen } from '@tauri-apps/api/event'
+import { getRuntimeBackendBase } from '@/utils/backend'
 
-const defaultBackendBase = 'http://127.0.0.1:9365'
-const backendBase = (
-    import.meta.env.VITE_BACK_URL ||
-    (window.__TAURI_INTERNALS__ ? defaultBackendBase : '')
-).replace(/\/$/, '')
+const backendBase = getRuntimeBackendBase()
 
 const wsUrl = (() => {
     if (import.meta.env.VITE_WS_URL) {

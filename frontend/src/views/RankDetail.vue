@@ -178,6 +178,8 @@ import { getGameDetail, getMulGameRankHighest } from '@/api/bog'
 import dicts from '@/model/dicts/index'
 import moment from 'moment';
 import { createFromIconfontCN } from '@ant-design/icons-vue';
+import { buildRuntimeRiotAssetUrl } from '@/utils/backend'
+import { buildRuntimeGameItemIconUrl } from '@/utils/assets.js'
 import { resolveQueueName } from '@/utils/queue'
 import { useStore } from 'vuex'
 const IconFont = createFromIconfontCN({
@@ -246,22 +248,22 @@ const fetchGameDetail = (gameId) => {
                 teamId: element.teamId,
                 puuid: partMap[element.participantId].puuid,
                 championId: element.championId,
-                championIcon: import.meta.env.VITE_BACK_URL + `/riot/v1/champion-icons/${element.championId}.png`,
-                spell1Icon: import.meta.env.VITE_BACK_URL + `/riot/DATA/Spells/Icons2D/${spellMap[element.spell1Id]}`,
-                spell2Icon: import.meta.env.VITE_BACK_URL + `/riot/DATA/Spells/Icons2D/${spellMap[element.spell2Id]}`,
+                championIcon: buildRuntimeRiotAssetUrl(`/v1/champion-icons/${element.championId}.png`),
+                spell1Icon: buildRuntimeRiotAssetUrl(`/DATA/Spells/Icons2D/${spellMap[element.spell1Id]}`),
+                spell2Icon: buildRuntimeRiotAssetUrl(`/DATA/Spells/Icons2D/${spellMap[element.spell2Id]}`),
                 kills: element.stats.kills,
                 deaths: element.stats.deaths,
                 assists: element.stats.assists,
                 kda: parseFloat(kda.toFixed(1)),
                 champLevel: element.stats.champLevel,
                 gameName: partMap[element.participantId].gameName,
-                item0: import.meta.env.VITE_BACK_URL + `/riot/ASSETS/items/icons2d/${itemIconMap[element.stats.item0]}`,
-                item1: import.meta.env.VITE_BACK_URL + `/riot/ASSETS/items/icons2d/${itemIconMap[element.stats.item1]}`,
-                item2: import.meta.env.VITE_BACK_URL + `/riot/ASSETS/items/icons2d/${itemIconMap[element.stats.item2]}`,
-                item3: import.meta.env.VITE_BACK_URL + `/riot/ASSETS/items/icons2d/${itemIconMap[element.stats.item3]}`,
-                item4: import.meta.env.VITE_BACK_URL + `/riot/ASSETS/items/icons2d/${itemIconMap[element.stats.item4]}`,
-                item5: import.meta.env.VITE_BACK_URL + `/riot/ASSETS/items/icons2d/${itemIconMap[element.stats.item5]}`,
-                item6: import.meta.env.VITE_BACK_URL + `/riot/ASSETS/items/icons2d/${itemIconMap[element.stats.item6]}`,
+                item0: buildRuntimeGameItemIconUrl(itemIconMap[element.stats.item0]),
+                item1: buildRuntimeGameItemIconUrl(itemIconMap[element.stats.item1]),
+                item2: buildRuntimeGameItemIconUrl(itemIconMap[element.stats.item2]),
+                item3: buildRuntimeGameItemIconUrl(itemIconMap[element.stats.item3]),
+                item4: buildRuntimeGameItemIconUrl(itemIconMap[element.stats.item4]),
+                item5: buildRuntimeGameItemIconUrl(itemIconMap[element.stats.item5]),
+                item6: buildRuntimeGameItemIconUrl(itemIconMap[element.stats.item6]),
                 goldEarned: element.stats.goldEarned,
                 totalDamageDealtToChampions: element.stats.totalDamageDealtToChampions,// 伤害
                 totalDamageTaken: element.stats.totalDamageTaken, // 承伤

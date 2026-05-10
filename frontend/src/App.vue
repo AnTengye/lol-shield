@@ -57,6 +57,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useStore } from 'vuex'
 import { createWebSocket } from './websocket/index'
 import dicts from '@/model/dicts/index'
+import { buildRuntimeRiotAssetUrl } from '@/utils/backend'
 import {
     CheckCircleOutlined,
     SyncOutlined,
@@ -107,7 +108,7 @@ export default defineComponent({
                 status.online = '已连接客户端'
                 // 获取用户信息
                 getUser().then(res => {
-                    userInfo.icon = import.meta.env.VITE_BACK_URL + '/riot/v1/profile-icons/' + res.data.profileIconId + '.jpg'
+                    userInfo.icon = buildRuntimeRiotAssetUrl(`/v1/profile-icons/${res.data.profileIconId}.jpg`)
                     userInfo.name = res.data.gameName + '#' + res.data.tagLine
                     userInfo.level = res.data.summonerLevel
                     if (res.data.tier !== 'NA') {

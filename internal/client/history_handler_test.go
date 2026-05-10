@@ -15,10 +15,11 @@ import (
 )
 
 type fakeHistoryLCU struct {
-	begin     int
-	limit     int
-	gameCount int
-	games     int
+	begin         int
+	limit         int
+	gameCount     int
+	games         int
+	responseBegin int
 }
 
 func (f *fakeHistoryLCU) GetToken(bool) (int, string, error) { return 0, "", nil }
@@ -54,11 +55,16 @@ func (f *fakeHistoryLCU) ListGamesByUID(_ string, begin, limit int) (*lcu.GameLi
 	if games == 0 {
 		games = 1
 	}
+	responseBegin := begin
+	if f.responseBegin >= 0 {
+		responseBegin = f.responseBegin
+	}
+	responseEnd := responseBegin + games - 1
 	body := `{
 		"games": {
 			"gameCount": ` + strconv.Itoa(gameCount) + `,
-			"gameIndexBegin": 18,
-			"gameIndexEnd": 26,
+			"gameIndexBegin": ` + strconv.Itoa(responseBegin) + `,
+			"gameIndexEnd": ` + strconv.Itoa(responseEnd) + `,
 			"games": [`
 	for i := 0; i < games; i++ {
 		if i > 0 {
@@ -97,7 +103,9 @@ func (f *fakeHistoryLCU) GetFriendInfoByPUUID(string) (*lcu.FriendInfo, error) {
 	return nil, nil
 }
 func (f *fakeHistoryLCU) SendConversationMsg(string, string) error { return nil }
-func (f *fakeHistoryLCU) GetCustomAssets(string) ([]byte, error)   { return nil, nil }
+func (f *fakeHistoryLCU) GetCustomAsset(string) (*lcu.AssetResponse, error) {
+	return nil, nil
+}
 func (f *fakeHistoryLCU) GetRankedData() (*lcu.RankedData, error)  { return nil, nil }
 func (f *fakeHistoryLCU) GetGameSummary(int64) (*lcu.GameSummary, error) {
 	return nil, nil
@@ -109,7 +117,7 @@ func (f *fakeHistoryLCU) GetRankedDataByPUUID(string) (*lcu.RankedData, error) {
 func TestListGamesReturnsPaginationMetadata(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	syslog.L = zap.NewNop().Sugar()
-	lcuSvc := &fakeHistoryLCU{}
+	lcuSvc := &fakeHistoryLCU{responseBegin: -1}
 	engine := gin.New()
 	engine.GET("/history/:uid", ListGames(NewShieldWithLCU(lcuSvc)))
 
@@ -147,12 +155,48 @@ func TestListGamesReturnsPaginationMetadata(t *testing.T) {
 	}
 }
 
-func TestListGamesAllowsNextPageWhenCurrentPageIsFull(t *testing.T) {
+func TestListGamesSlicesReturnedWindowToRequestedPage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	syslog.L = zap.NewNop().Sugar()
 	lcuSvc := &fakeHistoryLCU{
-		gameCount: 9,
-		games:     9,
+		gameCount:     10,
+		games:         10,
+		responseBegin: 0,
+	}
+	engine := gin.New()
+	engine.GET("/history/:uid", ListGames(NewShieldWithLCU(lcuSvc)))
+
+	req := httptest.NewRequest(http.MethodGet, "/history/test-puuid?page=1&pageSize=9", nil)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var got struct {
+		Data struct {
+			List    []map[string]interface{} `json:"list"`
+			HasNext bool                     `json:"hasNext"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(got.Data.List) != 1 {
+		t.Fatalf("expected second page to contain one game, got %d", len(got.Data.List))
+	}
+	if got.Data.HasNext {
+		t.Fatalf("expected hasNext=false on final page")
+	}
+}
+
+func TestListGamesHasNextUsesTotalCount(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	syslog.L = zap.NewNop().Sugar()
+	lcuSvc := &fakeHistoryLCU{
+		gameCount:     10,
+		games:         10,
+		responseBegin: 0,
 	}
 	engine := gin.New()
 	engine.GET("/history/:uid", ListGames(NewShieldWithLCU(lcuSvc)))
@@ -166,13 +210,116 @@ func TestListGamesAllowsNextPageWhenCurrentPageIsFull(t *testing.T) {
 	}
 	var got struct {
 		Data struct {
-			HasNext bool `json:"hasNext"`
+			List    []map[string]interface{} `json:"list"`
+			HasNext bool                     `json:"hasNext"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
+	if len(got.Data.List) != 9 {
+		t.Fatalf("expected first page to contain nine games, got %d", len(got.Data.List))
+	}
 	if !got.Data.HasNext {
-		t.Fatalf("expected hasNext=true when LCU returned a full page")
+		t.Fatalf("expected hasNext=true when total count exceeds current page")
+	}
+}
+
+func TestListGamesReturnsNoNextPageWhenLogWindowExactlyMatchesPage(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	syslog.L = zap.NewNop().Sugar()
+	lcuSvc := &fakeHistoryLCU{
+		gameCount:     9,
+		games:         9,
+		responseBegin: 0,
+	}
+	engine := gin.New()
+	engine.GET("/history/:uid", ListGames(NewShieldWithLCU(lcuSvc)))
+
+	req := httptest.NewRequest(http.MethodGet, "/history/test-puuid?page=0&pageSize=9", nil)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var got struct {
+		Data struct {
+			List     []map[string]interface{} `json:"list"`
+			Page     int                      `json:"page"`
+			PageSize int                      `json:"pageSize"`
+			Total    int                      `json:"total"`
+			HasNext  bool                     `json:"hasNext"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(got.Data.List) != 9 {
+		t.Fatalf("expected nine games from first page, got %d", len(got.Data.List))
+	}
+	if got.Data.Total != 9 || got.Data.Page != 0 || got.Data.PageSize != 9 {
+		t.Fatalf("unexpected pagination data: %+v", got.Data)
+	}
+	if got.Data.HasNext {
+		t.Fatalf("expected hasNext=false when returned window covers all nine games")
+	}
+}
+
+func TestListGamesRejectsNonNumericPage(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	syslog.L = zap.NewNop().Sugar()
+	lcuSvc := &fakeHistoryLCU{responseBegin: -1}
+	engine := gin.New()
+	engine.GET("/history/:uid", ListGames(NewShieldWithLCU(lcuSvc)))
+
+	req := httptest.NewRequest(http.MethodGet, "/history/test-puuid?page=oops&pageSize=9", nil)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status 500 for invalid page, got %d: %s", w.Code, w.Body.String())
+	}
+	var got struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if got.Message != "入参数据错误" {
+		t.Fatalf("expected input data error, got %+v", got)
+	}
+	if lcuSvc.limit != 0 || lcuSvc.begin != 0 {
+		t.Fatalf("expected handler to reject request before calling LCU, got begin=%d limit=%d", lcuSvc.begin, lcuSvc.limit)
+	}
+}
+
+func TestListGamesRejectsZeroPageSize(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	syslog.L = zap.NewNop().Sugar()
+	lcuSvc := &fakeHistoryLCU{responseBegin: -1}
+	engine := gin.New()
+	engine.GET("/history/:uid", ListGames(NewShieldWithLCU(lcuSvc)))
+
+	req := httptest.NewRequest(http.MethodGet, "/history/test-puuid?page=0&pageSize=0", nil)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status 500 for zero pageSize, got %d: %s", w.Code, w.Body.String())
+	}
+	var got struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if got.Message != "入参数据错误" {
+		t.Fatalf("expected input data error, got %+v", got)
+	}
+	if lcuSvc.limit != 0 || lcuSvc.begin != 0 {
+		t.Fatalf("expected handler to reject request before calling LCU, got begin=%d limit=%d", lcuSvc.begin, lcuSvc.limit)
 	}
 }
