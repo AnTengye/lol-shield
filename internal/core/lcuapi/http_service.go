@@ -121,8 +121,19 @@ func (s *httpService) GetFriendInfoByPUUID(puuid string) (*lcu.FriendInfo, error
 	return data, nil
 }
 
-func (s *httpService) GetCustomAssets(path string) ([]byte, error) {
-	return s.get("/lol-game-data/assets" + path)
+func (s *httpService) GetCustomAsset(path string) (*lcu.AssetResponse, error) {
+	body, contentType, statusCode, err := s.getWithMetadata("/lol-game-data/assets" + path)
+	if err != nil {
+		return nil, err
+	}
+	if contentType == "" {
+		contentType = lcu.DetectAssetContentType(path, body)
+	}
+	return &lcu.AssetResponse{
+		StatusCode:  statusCode,
+		ContentType: contentType,
+		Body:        body,
+	}, nil
 }
 
 func (s *httpService) GetRankedData() (*lcu.RankedData, error) {
@@ -158,18 +169,24 @@ func (s *httpService) getJSON(requestPath string, out any) error {
 }
 
 func (s *httpService) get(requestPath string) ([]byte, error) {
+	body, _, _, err := s.getWithMetadata(requestPath)
+	return body, err
+}
+
+func (s *httpService) getWithMetadata(requestPath string) ([]byte, string, int, error) {
 	resp, err := s.client.Get(s.baseURL + requestPath)
 	if err != nil {
-		return nil, err
+		return nil, "", 0, err
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, "", 0, err
 	}
+	contentType := resp.Header.Get("Content-Type")
 	if resp.StatusCode >= http.StatusBadRequest {
-		return nil, fmt.Errorf("GET %s failed: status %d", requestPath, resp.StatusCode)
+		return nil, contentType, resp.StatusCode, fmt.Errorf("GET %s failed: status %d", requestPath, resp.StatusCode)
 	}
-	return body, nil
+	return body, contentType, resp.StatusCode, nil
 }
