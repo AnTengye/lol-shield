@@ -45,6 +45,12 @@ importers:
       '@vitejs/plugin-vue':
         specifier: ^5.0.5
         version: 5.1.1(vite@5.3.5)(vue@3.4.35)
+      '@vue/compiler-dom':
+        specifier: 3.4.35
+        version: 3.4.35
+      '@vue/compiler-sfc':
+        specifier: 3.4.35
+        version: 3.4.35
       vite:
         specifier: ^5.3.4
         version: 5.3.5
