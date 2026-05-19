@@ -217,15 +217,12 @@ const checkShow = (state) => {
 }
 const winRateColor = (winRate) => {
     if (winRate >= 70) {
-        return 'red';
+        return '#f3d57a';
     } else if (winRate <= 40) {
-        return 'green';
+        return '#7ed9a4';
     } else {
-        return 'white'; // 默认颜色
+        return '#f4f0e6';
     }
-}
-const backgroundColor = (win) => {
-    return win ? 'gradient-background-w' : 'gradient-background-l';
 }
 const formatHistoryItem = (historyItem) => {
     const championIcon = buildRuntimeRiotAssetUrl(`/v1/champion-icons/${historyItem.championId}.png`)
@@ -248,6 +245,7 @@ const openPlayerHistory = (user) => {
 </script>
 <style scoped>
 .backgroud-img {
+    min-height: 100%;
     background-repeat: no-repeat;
     background-size: cover;
     background-position: center;
@@ -255,21 +253,40 @@ const openPlayerHistory = (user) => {
 }
 
 .match-board {
-    padding: 16px;
+    min-height: 100%;
+    padding: 24px 26px 18px;
+    background:
+        radial-gradient(circle at 50% 10%, rgba(200, 170, 110, 0.18), transparent 34%),
+        linear-gradient(180deg, rgba(3, 10, 14, 0.34), rgba(2, 5, 8, 0.78));
 }
 
 .team-row {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 12px;
-    margin-bottom: 16px;
+    grid-template-columns: repeat(5, minmax(130px, 1fr));
+    gap: 14px;
+    align-items: stretch;
+    max-width: 1120px;
+    margin: 0 auto 18px;
 }
 
 .player-card {
+    --team-accent: #c8aa6e;
     position: relative;
-    min-height: 220px;
+    height: 260px;
     overflow: hidden;
-    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(200, 170, 110, 0.58);
+    border-bottom-color: var(--team-accent);
+    background: #071016;
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.34);
+}
+
+.player-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    pointer-events: none;
+    z-index: 3;
 }
 
 .splash-image {
@@ -288,7 +305,10 @@ const openPlayerHistory = (user) => {
 .card-shade {
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.78));
+    background:
+        linear-gradient(180deg, rgba(0, 0, 0, 0.58), transparent 28%),
+        linear-gradient(0deg, rgba(0, 0, 0, 0.86), transparent 46%);
+    z-index: 1;
 }
 
 .stat-strip,
@@ -303,7 +323,7 @@ const openPlayerHistory = (user) => {
 .stat-strip {
     top: 10px;
     display: grid;
-    gap: 8px;
+    gap: 7px;
 }
 
 .rank-pill,
@@ -311,8 +331,9 @@ const openPlayerHistory = (user) => {
 .player-nameplate,
 .history-action,
 .display-toolbar {
-    background: rgba(0, 0, 0, 0.62);
-    color: white;
+    background: rgba(2, 8, 12, 0.72);
+    color: #f4f0e6;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
 }
 
 .rank-pill,
@@ -323,11 +344,23 @@ const openPlayerHistory = (user) => {
     gap: 6px;
     min-height: 28px;
     padding: 4px 8px;
+    border: 1px solid rgba(200, 170, 110, 0.42);
+    font-size: 12px;
+    line-height: 1.2;
+}
+
+.rank-icon {
+    flex: 0 0 auto;
+}
+
+.rank-text {
+    min-width: 0;
 }
 
 .rank-text,
 .game-name,
 .tag-line {
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -336,29 +369,92 @@ const openPlayerHistory = (user) => {
 .player-nameplate {
     bottom: 44px;
     display: grid;
-    justify-items: center;
+    place-items: center;
+    min-height: 44px;
     padding: 6px 8px;
-    border: 1px solid rgba(255, 255, 255, 0.24);
+    border: 1px solid rgba(200, 170, 110, 0.52);
+    border-radius: 0;
+    line-height: 1.2;
+    transition: border-color 0.16s ease, background-color 0.16s ease;
 }
 
 .history-action {
     bottom: 10px;
-    height: 28px;
-    border: 1px solid rgba(255, 255, 255, 0.24);
+    height: 26px;
+    padding: 0 10px;
+    border: 1px solid rgba(200, 170, 110, 0.58);
+    border-radius: 0;
+    color: #f0d27a;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0;
+}
+
+.player-nameplate:hover,
+.history-action:hover {
+    border-color: rgba(240, 210, 122, 0.9);
+    background: rgba(5, 18, 24, 0.92);
+}
+
+.game-name {
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.tag-line {
+    color: #c7d2d8;
+    font-size: 11px;
 }
 
 .queue-divider {
     grid-column: 1 / -1;
     display: flex;
+    align-items: center;
     justify-content: center;
-    color: white;
+    height: 44px;
+    color: #e6d19a;
+    font-weight: 700;
+}
+
+.queue-divider::before,
+.queue-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    max-width: 360px;
+    background: linear-gradient(90deg, transparent, rgba(200, 170, 110, 0.66), transparent);
+}
+
+.queue-divider span {
+    padding: 0 18px;
 }
 
 .display-toolbar {
+    max-width: 1120px;
+    margin: 18px auto 0;
     padding: 10px 12px;
+    border: 1px solid rgba(200, 170, 110, 0.28);
+    background: rgba(2, 8, 12, 0.64);
 }
 
 .display-option-label {
-    color: white;
+    color: #f4f0e6;
+}
+
+@media (max-width: 900px) {
+    .match-board {
+        padding: 18px 14px;
+    }
+
+    .team-row {
+        grid-template-columns: repeat(5, minmax(110px, 1fr));
+        gap: 10px;
+        overflow-x: auto;
+        padding-bottom: 6px;
+    }
+
+    .player-card {
+        height: 230px;
+    }
 }
 </style>
