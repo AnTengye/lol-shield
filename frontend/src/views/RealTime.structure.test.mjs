@@ -36,6 +36,11 @@ test('RealTime template keeps the history drawer backed by GameHistoryList', asy
     assert.match(template, /<a-drawer\b[\s\S]*v-model:open="historyDrawerOpen"/)
     assert.match(template, /<GameHistoryList\b/)
     assert.match(template, /:page-size="20"/)
+    assert.match(
+        template,
+        /<(?:button|a-button)\b(?=[^>]*\bhistory-action\b)(?=[^>]*@click\.stop="openPlayerHistory\(user\)")/,
+        'expected a dedicated history action element wired to openPlayerHistory(user)'
+    )
 })
 
 test('RealTime template exposes the loading card structure hooks', async () => {
@@ -45,7 +50,6 @@ test('RealTime template exposes the loading card structure hooks', async () => {
         'team-row',
         'player-card',
         'player-nameplate',
-        'history-action',
     ]) {
         assert.match(
             template,
