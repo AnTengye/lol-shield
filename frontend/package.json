@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "generate:queues": "node scripts/generate-queue-metadata.mjs",
     "preview": "vite preview",
     "tauri": "cd .. && frontend\\node_modules\\.bin\\tauri.cmd",
     "tauri:dev": "cd .. && frontend\\node_modules\\.bin\\tauri.cmd dev",

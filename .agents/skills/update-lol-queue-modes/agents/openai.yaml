@@ -1,0 +1,4 @@
+interface:
+  display_name: "Update LoL Queue Modes"
+  short_description: "快速支持新的英雄联盟队列模式中文名"
+  default_prompt: "Use $update-lol-queue-modes to add Chinese support for a new League of Legends queue mode."
