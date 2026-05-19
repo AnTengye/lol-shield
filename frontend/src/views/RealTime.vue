@@ -3,82 +3,47 @@
         <a-spin :spinning="initLoading">
             <a-result v-if="!gameStarted" status="warning" title="等待游戏对局加载后，方能获取数据">
             </a-result>
-            <div v-else>
-                <a-row justify="space-around" v-for="(team, index) in teamInfo" :key="index">
-                    <a-col :span="4" v-for="user in team">
-                        <div class="container">
-                            <a-image class="image" :width="180" :src="user.skinUrl" :preview="false"
-                                style="opacity: 0.7;" />
-                            <div class="overlay">
-                                <a-row class="justift-center-container" style="padding-top: 10px;">
-                                    <button class="player-name" :style="{ fontSize: '18px', color: user.teamColor }"
-                                        @click.stop="openPlayerHistory(user)">
-                                        <strong>{{ user.name.gameName }}</strong>
-                                    </button>
-                                    <button class="player-name tag-line" :style="{ fontSize: '14px', color: user.teamColor }"
-                                        @click.stop="openPlayerHistory(user)">
-                                        <strong>#{{ user.name.tagLine }}</strong>
-                                    </button>
-                                </a-row>
-                                <a-row justify="space-around">
-                                    <a-col :span="4" v-show="checkShow('段位')">
-                                        <a-tooltip>
-                                            <template #title>{{ user.rankText }}</template>
-                                            <a-avatar size="large" shape="square"
-                                                :src="getAssetsFile('rank/' + user.tier + '.png')"
-                                                :alt="user.rankText"></a-avatar>
-                                        </a-tooltip>
-                                    </a-col>
-                                    <a-col :span="14" class="justift-center-container" v-show="checkShow('段位')">
-                                        <div style="font-size: 10px;"><strong>{{ user.rankText }}</strong></div>
-                                    </a-col>
-                                </a-row>
-                                <a-row justify="space-around">
-                                    <a-col :span="14" class="justift-center-container" v-show="checkShow('段位')">
-                                        <div style="font-size: 10px;">
-                                            <strong>近{{ user.totalGames }}场胜率：</strong>
-                                            <strong :style="{ color: winRateColor(user.winRate) }">{{ user.winRate
-                                                }}%</strong>
-                                        </div>
-                                    </a-col>
-                                </a-row>
-                                <a-row class="justift-center-container" v-show="checkShow('战绩')">
-                                    <a-list :loading="initLoading" item-layout="horizontal" :data-source="user.history">
-                                        <template #renderItem="{ item }">
-                                            <div style="width: 100%;">
-                                                <a-list-item :class="[backgroundColor(item.win)]"
-                                                    style="padding-left: 12px;padding-right: 12px;">
-                                                    <a-skeleton avatar :title="false" :loading="!!initLoading" active>
-                                                        <a-list-item-meta :description="item.desc"
-                                                            style="align-items: center;font-weight: bold">
-                                                            <template #title>
-                                                                {{ item.queue }}
-                                                            </template>
-                                                            <template #avatar>
-                                                                <a-avatar :src="item.championIcon" />
-                                                            </template>
-                                                        </a-list-item-meta>
-                                                    </a-skeleton>
-                                                </a-list-item>
-                                            </div>
-                                        </template>
-                                    </a-list>
-                                </a-row>
+            <div v-else class="match-board">
+                <section class="team-row" v-for="(team, index) in teamInfo" :key="index">
+                    <article class="player-card" v-for="user in team" :key="user.puuid"
+                        :style="{ '--team-accent': user.teamColor || '#c8aa6e' }">
+                        <a-image class="splash-image" :src="user.skinUrl" :preview="false" />
+                        <div class="card-shade"></div>
+
+                        <div class="stat-strip">
+                            <div class="rank-pill" v-show="checkShow('段位')">
+                                <a-avatar v-if="user.tier" class="rank-icon" size="small" shape="square"
+                                    :src="getAssetsFile('rank/' + user.tier + '.png')" :alt="user.rankText" />
+                                <span class="rank-text">{{ user.rankText || '暂无排位数据' }}</span>
+                            </div>
+                            <div class="winrate-pill">
+                                <span>近{{ user.totalGames }}场</span>
+                                <strong :style="{ color: winRateColor(user.winRate) }">{{ user.winRate }}%</strong>
                             </div>
                         </div>
-                    </a-col>
-                    <a-divider style="height: 1px; background-color: black" v-if="index < 1"><strong
-                            style="color: white;">{{
-                                displayQueueName }}</strong></a-divider>
-                </a-row>
-                <a-row>
-                    <a-checkbox-group v-model:value="showState" :options="plainOptions"
-                        style="padding-top: 10px;padding-left: 20px;">
+
+                        <button class="player-nameplate" @click.stop="openPlayerHistory(user)">
+                            <span class="game-name">{{ user.name.gameName || '未知玩家' }}</span>
+                            <span class="tag-line" v-if="user.name.tagLine">#{{ user.name.tagLine }}</span>
+                        </button>
+
+                        <button v-show="checkShow('战绩')" class="history-action" @click.stop="openPlayerHistory(user)">
+                            战绩
+                        </button>
+                    </article>
+
+                    <div class="queue-divider" v-if="index < 1">
+                        <span>{{ displayQueueName }}</span>
+                    </div>
+                </section>
+
+                <div class="display-toolbar">
+                    <a-checkbox-group v-model:value="showState" :options="plainOptions">
                         <template #label="{ label }">
-                            <span style="color: white">{{ label }}</span>
+                            <span class="display-option-label">{{ label }}</span>
                         </template>
                     </a-checkbox-group>
-                </a-row>
+                </div>
             </div>
             <a-drawer v-model:open="historyDrawerOpen" placement="right" :width="440" :title="historyDrawerTitle">
                 <GameHistoryList :puuid="selectedPlayer?.puuid || ''" :page-size="20" :show-pagination="false"
@@ -289,92 +254,111 @@ const openPlayerHistory = (user) => {
     height: 100%;
 }
 
-.real-time-container {
-    position: relative;
-    /* display: flex; */
-    justify-content: center;
-    align-items: center;
-    /* width: 300px; */
+.match-board {
+    padding: 16px;
 }
 
-.real-time-hero-image {
-    display: block;
-    width: 100%;
-    height: auto;
-    opacity: 0.7;
-}
-
-.container {
-    position: relative;
-    width: 180px;
-}
-
-.overlay {
-    /* display: grid; */
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 180px;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    /* 半透明黑色背景 */
-    /* display: flex; */
-    /* justify-content: center; */
-    /* align-items: center; */
-    color: white;
-    font-size: 20px;
-    text-align: center;
-    overflow: hidden;
-    z-index: 2;
-}
-
-.justift-center-container {
+.team-row {
     display: grid;
-    place-items: center;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
 }
 
-.player-name {
-    cursor: pointer;
+.player-card {
+    position: relative;
+    min-height: 220px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.55);
+}
+
+.splash-image {
+    width: 100%;
+    height: 100%;
+}
+
+.splash-image :deep(.ant-image),
+.splash-image :deep(img) {
+    width: 100%;
+    height: 100%;
     display: block;
-    width: 170px;
-    margin: 0 auto 2px;
-    padding: 3px 6px;
-    border: 1px solid rgba(255, 255, 255, 0.45);
-    border-radius: 4px;
-    background: rgba(0, 0, 0, 0.42);
-    line-height: 1.25;
+    object-fit: cover;
+}
+
+.card-shade {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.78));
+}
+
+.stat-strip,
+.player-nameplate,
+.history-action {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    z-index: 1;
+}
+
+.stat-strip {
+    top: 10px;
+    display: grid;
+    gap: 8px;
+}
+
+.rank-pill,
+.winrate-pill,
+.player-nameplate,
+.history-action,
+.display-toolbar {
+    background: rgba(0, 0, 0, 0.62);
+    color: white;
+}
+
+.rank-pill,
+.winrate-pill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 28px;
+    padding: 4px 8px;
+}
+
+.rank-text,
+.game-name,
+.tag-line {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    text-align: center;
-    transition: background-color 0.15s ease, border-color 0.15s ease;
-    position: relative;
-    z-index: 3;
 }
 
-.player-name:hover {
-    background: rgba(0, 0, 0, 0.72);
-    border-color: rgba(255, 255, 255, 0.85);
+.player-nameplate {
+    bottom: 44px;
+    display: grid;
+    justify-items: center;
+    padding: 6px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.24);
 }
 
-.tag-line {
-    margin-bottom: 6px;
+.history-action {
+    bottom: 10px;
+    height: 28px;
+    border: 1px solid rgba(255, 255, 255, 0.24);
 }
 
-.gradient-background-w {
-    background-color: #8fd6a9;
-    width: 200px;
-    height: 60px;
-    font-size: 20px;
-    opacity: 0.78;
+.queue-divider {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+    color: white;
 }
 
+.display-toolbar {
+    padding: 10px 12px;
+}
 
-.gradient-background-l {
-    background-color: #e39a9a;
-    width: 200px;
-    height: 60px;
-    font-size: 20px;
-    opacity: 0.78;
+.display-option-label {
+    color: white;
 }
 </style>
