@@ -71,8 +71,14 @@ function hasDirective(element, name, argumentName, expressionPattern, modifier) 
             return false
         }
 
-        if (modifier && !prop.modifiers.includes(modifier)) {
-            return false
+        if (modifier) {
+            const modifiers = prop.modifiers.map((entry) =>
+                typeof entry === 'string' ? entry : entry?.content
+            )
+
+            if (!modifiers.includes(modifier)) {
+                return false
+            }
         }
 
         if (!expressionPattern) {
