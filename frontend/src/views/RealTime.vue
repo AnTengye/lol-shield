@@ -5,10 +5,30 @@
             </a-result>
             <div v-else class="match-board">
                 <section class="team-row" v-for="(team, index) in teamInfo" :key="index">
+                    <div class="team-header">
+                        <span class="team-side">{{ index === 0 ? '我方' : '敌方' }}</span>
+                        <div class="party-legend" aria-label="组队关系">
+                            <span class="party-legend-title">组队关系</span>
+                            <span v-for="party in summarizeTeam(team)" :key="party.partyKey"
+                                class="party-legend-item" :class="`party-legend-item--${party.partyKind}`"
+                                :style="partyStyle(party)">
+                                <span class="party-dot"></span>
+                                <span>{{ party.partyLabel }}</span>
+                                <small>{{ party.size }}人</small>
+                            </span>
+                        </div>
+                    </div>
+
                     <article class="player-card" v-for="user in team" :key="user.puuid"
-                        :style="{ '--team-accent': user.teamColor || '#c8aa6e' }">
+                        :class="`player-card--${user.partyKind || 'unknown'}`" :style="partyStyle(user)">
                         <a-image class="splash-image" :src="user.skinUrl" :preview="false" />
                         <div class="card-shade"></div>
+
+                        <div class="party-badge" :class="`party-badge--${user.partyKind || 'unknown'}`">
+                            <span class="party-dot"></span>
+                            <span>{{ user.partyLabel || '组队信息待确认' }}</span>
+                            <small v-if="user.partyKind === 'party'">{{ user.partySize }}人</small>
+                        </div>
 
                         <div class="stat-strip">
                             <div class="rank-pill" v-show="checkShow('段位')">
@@ -59,6 +79,7 @@
 import { getAssetsFile } from '@/utils/getAssetsUrl.js'
 import { getGameRunning, getMulGameRankHighest } from '@/api/bog'
 import { buildRuntimeRiotAssetUrl } from '@/utils/backend'
+import { buildPartyView, summarizeParties } from '@/utils/party.js'
 import { onMounted, ref, watch, computed } from 'vue';
 import { isAramLikeQueue, resolveQueueName } from '@/utils/queue'
 
@@ -75,11 +96,10 @@ const rankMap = dicts.getDict('rank')
 const status = computed(() => getters['ws/getGameStatus'])
 const gameStarted = ref(false);
 // 队伍数据
-const teamColor = ['#FF6B6B', '#DC143C', '#00FA9A', '#FFA500'];
 const teamInfo = ref([]);
 const allPuuids = ref([])
 // 加载皮肤数据
-const skinMap = JSON.parse(localStorage.getItem('skins'))
+const skinMap = JSON.parse(localStorage.getItem('skins')) || {}
 // 地图数据
 const queueId = ref(0);
 const queueName = ref('');
@@ -112,21 +132,13 @@ const fetchRunningData = () => {
     getGameRunning().then(res => {
         let blue = []
         let red = []
-        let colorIndex = 1
-        let preColorMap = {}
-        let gameHistory = res.data.allGameHistory
-        let nameMap = res.data.userNameMap
-        let teamSkinMap = res.data.skinMap
+        let gameHistory = res.data.allGameHistory || {}
+        let nameMap = res.data.userNameMap || {}
+        let teamSkinMap = res.data.skinMap || {}
         let allPuuid = []
-        for (var i in res.data.preTeam) {
-            let val = res.data.preTeam[i]
-            if (val.length > 1) {
-                val.forEach(element => {
-                    preColorMap[element.puuid] = teamColor[colorIndex];
-                });
-                colorIndex++
-            }
-        }
+        let selfUsers = res.data.selfTeamInfo.userList || []
+        let enemyUsers = res.data.enemyTeamInfo.userList || []
+        let partyView = buildPartyView(res.data.preTeam, [...selfUsers, ...enemyUsers])
         let f = function (element) {
             allPuuid.push(element.puuid)
             let history = []
@@ -160,18 +172,18 @@ const fetchRunningData = () => {
                 name: nameInfo,
                 skinUrl: skinUrl,
                 puuid: element.puuid,
-                teamColor: preColorMap[element.puuid],
+                ...(partyView.byPuuid[element.puuid] || {}),
                 history: history,
                 winRate: (wins / total * 100).toFixed(0),
                 totalGames: total,
             }
         }
         if (res.data.selfTeamInfo.teamId === 100) {
-            res.data.selfTeamInfo.userList.forEach(element => blue.push(f(element)));
-            res.data.enemyTeamInfo.userList.forEach(element => red.push(f(element)));
+            selfUsers.forEach(element => blue.push(f(element)));
+            enemyUsers.forEach(element => red.push(f(element)));
         } else {
-            res.data.selfTeamInfo.userList.forEach(element => red.push(f(element)));
-            res.data.enemyTeamInfo.userList.forEach(element => blue.push(f(element)));
+            selfUsers.forEach(element => red.push(f(element)));
+            enemyUsers.forEach(element => blue.push(f(element)));
         }
         allPuuids.value = allPuuid
         teamInfo.value = [blue, red]
@@ -215,6 +227,11 @@ onMounted(() => {
 const checkShow = (state) => {
     return showState.value.some(element => element === state);
 }
+const summarizeTeam = (team) => summarizeParties(team)
+const partyStyle = (party) => ({
+    '--party-accent': party?.partyColor || '#9aa9b1',
+    '--party-soft-color': party?.partySoftColor || 'rgba(154, 169, 177, 0.18)',
+})
 const winRateColor = (winRate) => {
     if (winRate >= 70) {
         return '#f3d57a';
@@ -269,15 +286,95 @@ const openPlayerHistory = (user) => {
     margin: 0 auto 18px;
 }
 
+.team-header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 42px;
+    padding: 7px 10px;
+    border-left: 3px solid rgba(200, 170, 110, 0.68);
+    background: rgba(2, 8, 12, 0.68);
+}
+
+.team-side {
+    flex: 0 0 auto;
+    color: #f0d27a;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+
+.party-legend {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
+}
+
+.party-legend-title {
+    color: #aebbc2;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.party-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 7px;
+    border: 1px solid var(--party-accent);
+    border-radius: 999px;
+    background: var(--party-soft-color);
+    color: #f4f0e6;
+    font-size: 11px;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+
+.party-legend-item--solo,
+.party-badge--solo {
+    border-style: dashed;
+}
+
+.party-legend-item--unknown,
+.party-badge--unknown {
+    border-style: dotted;
+}
+
+.party-legend-item small,
+.party-badge small {
+    color: #d2dce0;
+    font-size: 10px;
+}
+
+.party-dot {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--party-accent);
+    box-shadow: 0 0 8px var(--party-accent);
+}
+
 .player-card {
-    --team-accent: #c8aa6e;
+    --party-accent: #9aa9b1;
+    --party-soft-color: rgba(154, 169, 177, 0.18);
     position: relative;
     height: 260px;
     overflow: hidden;
     border: 1px solid rgba(200, 170, 110, 0.58);
-    border-bottom-color: var(--team-accent);
+    border-top: 3px solid var(--party-accent);
+    border-left: 4px solid var(--party-accent);
     background: #071016;
-    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.34);
+    box-shadow:
+        0 0 0 1px var(--party-soft-color),
+        0 16px 32px rgba(0, 0, 0, 0.34);
+}
+
+.player-card--unknown {
+    border-top-style: dotted;
 }
 
 .player-card::before {
@@ -311,6 +408,33 @@ const openPlayerHistory = (user) => {
     z-index: 1;
 }
 
+.party-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: calc(100% - 20px);
+    padding: 4px 8px;
+    overflow: hidden;
+    border: 1px solid var(--party-accent);
+    border-radius: 999px;
+    background: rgba(2, 8, 12, 0.84);
+    color: #fff8e5;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.1;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+    white-space: nowrap;
+}
+
+.party-badge > span:not(.party-dot) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .stat-strip,
 .player-nameplate,
 .history-action {
@@ -321,7 +445,7 @@ const openPlayerHistory = (user) => {
 }
 
 .stat-strip {
-    top: 10px;
+    top: 50px;
     display: grid;
     gap: 7px;
 }

@@ -92,6 +92,44 @@ GET /lol-game-data/assets{path}
 
 Used to proxy champion icons and skin loading screens through the local backend.
 
+## Champion-select preview feasibility
+
+Checked: 2026-08-13
+
+The answer is **partly yes**:
+
+- `GET /lol-champ-select/v1/session` exposes the current `myTeam` and, when the
+  client makes them available, player identifiers such as `puuid` and
+  `summonerId`. The existing WebSocket subscription already listens for
+  `/lol-champ-select/v1/session` updates.
+- Recent records can use the existing
+  `/lol-match-history/v1/products/lol/{puuid}/matches` path. In fact,
+  `ChampionSelectStart` already reads the champion-select conversation and
+  calls the same history aggregation used by the realtime page; the missing
+  part is exposing that cached result to the frontend while the phase is still
+  `ChampSelect`.
+- A champion-select payload does not provide a stable, documented premade
+  group identifier. `/lol-gameflow/v1/session` can contain `teamOne`/`teamTwo`
+  entries whose `teamParticipantId` values are repeated for members of the
+  same premade in observed payloads, and the current in-game implementation
+  uses that as a best-effort grouping key. It must not be confused with
+  `queue.allowablePremadeSizes`, which describes permitted party sizes rather
+  than the actual parties in this match.
+
+The safe implementation boundary is therefore: show allied players and recent
+records during champion select, show `组队 A/B` only when a repeated grouping
+key is present, and otherwise show `组队信息待确认` rather than guessing that
+players are solo or in one shared party. A separate preview endpoint and a
+separate frontend status are preferable to making `game/running` serve two
+different phases.
+
+The League Client API is local and available to native applications, but Riot
+does not officially support third-party use of the service and gives no
+guarantee about documentation, uptime, or change notifications. The practical
+endpoint index used for this check is
+[`lcu.kebs.dev`](https://lcu.kebs.dev/); the official policy boundary is Riot's
+[League Client API documentation](https://developer.riotgames.com/docs/lol#game-client-api).
+
 ## Pagination note
 
 The previous frontend mixed `totalPages` and `pageSize`: it used the same value both as the page count for the pagination control and as the request `pageSize`. Because the backend only returned an array, the frontend could not know the real number of pages. The fixed contract returns:
