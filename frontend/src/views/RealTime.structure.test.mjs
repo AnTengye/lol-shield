@@ -142,3 +142,15 @@ test('RealTime template keeps the planned loading-card structure hooks', async (
         )
     }
 })
+
+test('RealTime template exposes explicit party labels and a team legend', async () => {
+    const elements = getElements(await loadTemplateAst())
+
+    for (const className of ['team-header', 'party-legend', 'party-badge']) {
+        assert.equal(
+            elements.some((element) => hasClassToken(element, className)),
+            true,
+            `expected template to include a .${className} party relationship hook`
+        )
+    }
+})
