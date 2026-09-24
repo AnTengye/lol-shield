@@ -36,8 +36,9 @@ type Resp struct {
 }
 
 func (e *Resp) WithField(f string) *Resp {
-	e.Field = f
-	return e
+	copy := *e
+	copy.Field = f
+	return &copy
 }
 
 func (e *Resp) Error() string {

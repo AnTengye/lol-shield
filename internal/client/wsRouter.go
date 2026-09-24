@@ -57,6 +57,9 @@ func (p *Shield) RegisterStaticRoute() {
 func (p *Shield) onGameFlowUpdate(gameFlow models.GameStatus) {
 	syslog.L.Infof("游戏状态:%s", gameFlow)
 	p.updateGameState(gameFlow)
+	p.stateMu.Lock()
+	p.sessionEpoch++
+	p.stateMu.Unlock()
 	switch gameFlow {
 	case models.GameFlowChampionSelect:
 		go p.ChampionSelectStart()
@@ -70,8 +73,7 @@ func (p *Shield) onGameFlowUpdate(gameFlow models.GameStatus) {
 			go p.AcceptGame()
 		}
 	case models.GameFlowEndOfGame:
-		p.CurGame = nil
-		p.CurInfo.GameStatus = GSWaiting
+		p.reset()
 		go p.Notice()
 	default:
 	}

@@ -107,17 +107,13 @@ test('RealTime template keeps the history drawer and dedicated history action pa
 
     const hasHistoryDrawer = elements.some(
         (element) =>
-            element.tag === 'a-drawer' &&
+            element.tag === 'PlayerHistoryPanel' &&
             hasDirective(element, 'model', 'open', /^\s*historyDrawerOpen\s*$/)
     )
     assert.equal(hasHistoryDrawer, true, 'expected the history drawer to remain wired to historyDrawerOpen')
 
-    const keepsGameHistoryList = elements.some(
-        (element) =>
-            element.tag === 'GameHistoryList' &&
-            hasDirective(element, 'bind', 'page-size', /^\s*20\s*$/)
-    )
-    assert.equal(keepsGameHistoryList, true, 'expected GameHistoryList to remain with page-size 20')
+    const panel = elements.find(element => element.tag === 'PlayerHistoryPanel')
+    assert.equal(hasDirective(panel, 'bind', 'player', /^\s*selectedPlayer\s*$/), true, '共用面板必须接收当前玩家')
 
     const hasDedicatedHistoryAction = elements.some(
         (element) =>

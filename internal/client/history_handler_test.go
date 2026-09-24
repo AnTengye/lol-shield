@@ -106,7 +106,7 @@ func (f *fakeHistoryLCU) SendConversationMsg(string, string) error { return nil 
 func (f *fakeHistoryLCU) GetCustomAsset(string) (*lcu.AssetResponse, error) {
 	return nil, nil
 }
-func (f *fakeHistoryLCU) GetRankedData() (*lcu.RankedData, error)  { return nil, nil }
+func (f *fakeHistoryLCU) GetRankedData() (*lcu.RankedData, error) { return nil, nil }
 func (f *fakeHistoryLCU) GetGameSummary(int64) (*lcu.GameSummary, error) {
 	return nil, nil
 }

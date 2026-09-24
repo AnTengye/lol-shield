@@ -16,7 +16,9 @@ import (
 	"github.com/AnTengye/lol-shield/configs"
 	"github.com/AnTengye/lol-shield/internal/client/middleware"
 	"github.com/AnTengye/lol-shield/internal/client/ws"
+	"github.com/AnTengye/lol-shield/internal/core/history"
 	"github.com/AnTengye/lol-shield/internal/core/lcuapi"
+	"github.com/AnTengye/lol-shield/internal/pkg/historycache"
 	"github.com/AnTengye/lol-shield/internal/pkg/lcu"
 	"github.com/AnTengye/lol-shield/internal/pkg/lcu/models"
 	"github.com/AnTengye/lol-shield/internal/pkg/syslog"
@@ -45,20 +47,24 @@ const (
 
 type (
 	Shield struct {
-		ctx          context.Context
-		httpSrv      *http.Server
-		CurInfo      StatusInfo
-		currSummoner *lcu.SummonerInfo
-		cancel       func()
-		mu           *sync.Mutex
-		GameState    models.GameStatus
-		CurGame      *GameInfo
-		CurLobby     *LobbyInfo
-		wsRouter     *tree2.Engine
-		webWs        *ws.WebClient
-		port         int
-		token        string
-		lcuService   lcuapi.Service
+		ctx            context.Context
+		httpSrv        *http.Server
+		CurInfo        StatusInfo
+		currSummoner   *lcu.SummonerInfo
+		cancel         func()
+		mu             *sync.Mutex
+		stateMu        sync.RWMutex
+		sessionEpoch   uint64
+		GameState      models.GameStatus
+		CurGame        *GameInfo
+		CurLobby       *LobbyInfo
+		wsRouter       *tree2.Engine
+		webWs          *ws.WebClient
+		port           int
+		token          string
+		lcuService     lcuapi.Service
+		historyService *history.Service
+		cacheError     string
 	}
 	wsMsg struct {
 		Data      interface{} `json:"data"`
@@ -84,6 +90,7 @@ type GameInfo struct {
 	SkinMap        map[string]lcu.ChampionSkinInfo `json:"skinMap"`
 	QueueId        models.GameQueueID              `json:"queueId"`
 	QueueName      string                          `json:"queueName"`
+	Partial        bool                            `json:"partial"`
 }
 
 type LobbyInfo struct {
@@ -131,8 +138,16 @@ func NewShieldWithLCU(lcuSvc lcuapi.Service) *Shield {
 		wsRouter:   tree2.NewEngine(),
 		lcuService: lcuSvc,
 	}
+	p.historyService = history.New(lcuSvc, nil, "live", nil)
 	p.RegisterStaticRoute()
 	return p
+}
+
+func (p *Shield) ConfigureHistory(cache *historycache.Store, source string, cacheErr error) {
+	p.historyService = history.New(p.lcuService, cache, source, p.isLcuActive)
+	if cacheErr != nil {
+		p.cacheError = cacheErr.Error()
+	}
 }
 
 func NewServer(addr string, p *Shield) *http.Server {
@@ -150,15 +165,28 @@ func NewServer(addr string, p *Shield) *http.Server {
 
 func (p *Shield) Run() error {
 	if viper.GetBool(configs.MockLCUEnabled) {
-		go p.bootstrapMockState()
+		go p.monitorMockState()
 	} else {
 		go p.MonitorStart()
 	}
 	syslog.L.Infof("等待客户端连接中...")
 	return p.notifyQuit()
 }
-func (p *Shield) isLcuActive() bool {
-	return p.CurInfo.Status == STOnline
+func (p *Shield) statusSnapshot() StatusInfo {
+	p.stateMu.RLock()
+	defer p.stateMu.RUnlock()
+	return p.CurInfo
+}
+func (p *Shield) isLcuActive() bool { return p.statusSnapshot().Status == STOnline }
+func (p *Shield) disconnect() {
+	p.stateMu.Lock()
+	p.sessionEpoch++
+	p.currSummoner = nil
+	p.CurGame = nil
+	p.CurInfo = StatusInfo{Status: STWaiting, GameStatus: GSWaiting}
+	p.stateMu.Unlock()
+	p.updateGameState(models.GameFlowNone)
+	p.Notice()
 }
 func (p *Shield) notifyQuit() error {
 	if viper.GetBool(configs.Dev) {
@@ -223,7 +251,11 @@ func (p *Shield) getTokenFromFile() {
 // MonitorStart 启动客户端监控
 func (p *Shield) MonitorStart() {
 	for {
-		time.Sleep(time.Second)
+		select {
+		case <-p.ctx.Done():
+			return
+		case <-time.After(time.Second):
+		}
 		if !p.isLcuActive() {
 			port, token, err := p.lcuService.GetToken(viper.GetBool(configs.LCUTokenFromFile))
 			if err != nil {
@@ -233,16 +265,12 @@ func (p *Shield) MonitorStart() {
 				continue
 			}
 			p.lcuService.Init(port, token)
-			syslog.L.Debug("lcu info", zap.Int("port", port), zap.String("token", token))
+			syslog.L.Debug("lcu info", zap.Int("port", port))
 			err = p.runMonitor(port, token)
 			if err != nil {
 				syslog.L.Debugf("客户端已断开:%v", zap.Error(err))
 			}
-			p.currSummoner = nil
-			p.CurInfo = StatusInfo{
-				Status: STWaiting,
-			}
-			p.Notice()
+			p.disconnect()
 		}
 	}
 }
@@ -268,7 +296,9 @@ func (p *Shield) runMonitor(port int, authPwd string) error {
 		func() error {
 			currSummoner, err := p.lcuService.GetCurrSummoner()
 			if err == nil {
+				p.stateMu.Lock()
 				p.currSummoner = currSummoner
+				p.stateMu.Unlock()
 			}
 			return err
 		}, retry.Attempts(5), retry.Delay(time.Second),
@@ -276,14 +306,21 @@ func (p *Shield) runMonitor(port int, authPwd string) error {
 	if err != nil {
 		return errors.New("获取当前召唤师信息失败:" + err.Error())
 	}
+	p.stateMu.Lock()
+	if p.currSummoner == nil {
+		p.stateMu.Unlock()
+		return errors.New("召唤师尚未就绪")
+	}
+	summonerID := p.currSummoner.SummonerId
 	p.CurInfo = StatusInfo{
 		Status:     STOnline,
 		GameStatus: GSWaiting,
 		Uid:        p.currSummoner.SummonerId,
 		Uuid:       p.currSummoner.Puuid,
 	}
+	p.stateMu.Unlock()
 	p.Notice()
-	go p.initSkin(p.currSummoner.SummonerId)
+	go p.initSkin(summonerID)
 	go p.checkFlow()
 	_ = c.WriteMessage(websocket.TextMessage, []byte("[5, \"OnJsonApiEvent\"]"))
 	for {
@@ -319,24 +356,55 @@ func (p *Shield) getGameState() models.GameStatus {
 }
 
 func (p *Shield) Notice() {
-	if p.webWs == nil {
-		return
+	p.stateMu.RLock()
+	client, status := p.webWs, p.CurInfo
+	p.stateMu.RUnlock()
+	if client != nil {
+		client.Write(status.ToData())
 	}
-	p.webWs.Write(p.CurInfo.ToData())
+}
+
+func (p *Shield) monitorMockState() {
+	for {
+		if !p.isLcuActive() {
+			p.bootstrapMockState()
+		} else {
+			summoner, err := p.lcuService.GetCurrSummoner()
+			if err != nil || summoner == nil {
+				p.disconnect()
+			} else {
+				flow, err := p.lcuService.GetCurrentFlow()
+				if err != nil {
+					p.disconnect()
+				} else if flow != p.getGameState() {
+					p.onGameFlowUpdate(flow)
+				}
+			}
+		}
+		select {
+		case <-p.ctx.Done():
+			return
+		case <-time.After(3 * time.Second):
+		}
+	}
 }
 
 func (p *Shield) bootstrapMockState() {
 	currSummoner, err := p.lcuService.GetCurrSummoner()
-	if err != nil {
-		syslog.L.Fatalf("mock lcu bootstrap failed: %v", err)
+	if err != nil || currSummoner == nil {
+		syslog.L.Warnf("mock lcu bootstrap failed: %v", err)
+		p.disconnect()
+		return
 	}
+	p.stateMu.Lock()
 	p.currSummoner = currSummoner
 	p.CurInfo = StatusInfo{
 		Status:     STOnline,
-		GameStatus: GSStarted,
+		GameStatus: GSWaiting,
 		Uid:        currSummoner.SummonerId,
 		Uuid:       currSummoner.Puuid,
 	}
+	p.stateMu.Unlock()
 	flow, err := p.lcuService.GetCurrentFlow()
 	if err != nil {
 		syslog.L.Warnf("mock flow bootstrap failed: %v", err)
@@ -353,6 +421,9 @@ func (p *Shield) bootstrapMockState() {
 }
 
 func (p *Shield) reset() {
+	p.stateMu.Lock()
+	defer p.stateMu.Unlock()
+	p.sessionEpoch++
 	p.CurGame = nil
 	p.CurLobby = nil
 	p.CurInfo.GameStatus = GSWaiting

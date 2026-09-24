@@ -1,179 +1,151 @@
 <template>
-    <a-list class="game-history-list" :loading="loading" item-layout="horizontal" :data-source="list">
-        <template #loadMore>
-            <div v-if="showPagination && !loading"
-                :style="{ textAlign: 'center', marginTop: '12px', height: '32px', lineHeight: '32px' }">
-                <Pagination :total="totalPages" :current="currentPage" @page-change="handlePageChange" />
-            </div>
-        </template>
-        <template #renderItem="{ item }">
-            <a-list-item :class="[backgroundColor(item.win), { 'active': item.gameId === selectedGameId }]"
-                @click="selectGame(item.gameId)">
-                <a-skeleton avatar :title="false" :loading="!!loading" active>
-                    <a-list-item-meta :description="item.desc" style="align-items: center;">
-                        <template #title>
-                            {{ item.queue }}
-                        </template>
-                        <template #avatar>
-                            <a-avatar :src="item.championIcon" />
-                        </template>
-                    </a-list-item-meta>
-                    <div v-if="showResultIcon">
-                        <icon-font v-if="item.win" :style="{ fontSize: '40px' }" type="icon-shengli1" />
-                        <icon-font v-else :style="{ fontSize: '40px' }" type="icon-shibai_--copy" />
-                    </div>
-                </a-skeleton>
-            </a-list-item>
-        </template>
-    </a-list>
+  <section class="history-list" aria-label="对局战绩">
+    <div class="section-toolbar">
+      <span
+        >{{ offline ? '本地战绩' : '最近战绩' }}
+        <small>{{ total }} 场</small></span
+      ><a-button size="small" :loading="loading" @click="refresh"
+        >刷新</a-button
+      >
+    </div>
+    <p v-if="meta?.source === 'disk-cache'" class="muted source-note">
+      本地记录<span v-if="meta.fetchedAt">
+        · {{ formatDate(meta.fetchedAt) }}</span
+      ><span v-if="meta.stale"> · 等待更新</span>
+    </p>
+    <p v-if="meta?.refreshFailed" class="warning-text source-note">
+      刷新失败，保留上次查看的列表
+    </p>
+    <a-alert v-if="error" type="warning" :message="error" show-icon />
+    <a-skeleton
+      v-if="loading && !list.length"
+      active
+      :paragraph="{ rows: 8 }"
+      class="padded"
+    />
+    <a-empty
+      v-else-if="!list.length && !error"
+      description="暂无已获取的对局"
+    />
+    <div
+      v-else
+      ref="scrollElement"
+      class="history-scroll"
+      @scroll="emit('scroll-change', $event.target.scrollTop)"
+    >
+      <button
+        v-for="item in list"
+        :key="`${item.scope}:${item.gameId}`"
+        class="history-row"
+        :class="{ selected: String(item.gameId) === String(selectedGameId) }"
+        :aria-pressed="String(item.gameId) === String(selectedGameId)"
+        @click="selectGame(item)"
+      >
+        <span
+          class="result-stripe"
+          :class="item.win ? 'win-bg' : 'loss-bg'"
+        ></span>
+        <AssetImage
+          :src="
+            buildRuntimeRiotAssetUrl(
+              `/v1/champion-icons/${item.championId}.png`,
+            )
+          "
+          :label="`英雄 ${item.championId}`"
+        />
+        <span class="history-copy"
+          ><strong>{{
+            resolveQueueName(queueMap, item.queueId, item.gameMode)
+          }}</strong
+          ><small
+            >{{ formatDate(item.createTime) }} ·
+            {{ duration(item.gameDuration) }}</small
+          ><small>{{
+            item.hasDetail ? '详情已保存' : '点击查看详情'
+          }}</small></span
+        >
+        <span class="history-score"
+          ><b :class="item.win ? 'win-text' : 'loss-text'">{{
+            item.win ? '胜利' : '失败'
+          }}</b
+          ><span
+            >{{ item.kills }}/{{ item.deaths }}/{{ item.assists }}</span
+          ></span
+        >
+      </button>
+    </div>
+    <a-pagination
+      v-if="showPagination && total > 20"
+      :current="page"
+      :total="total"
+      :page-size="20"
+      :show-size-changer="false"
+      size="small"
+      class="history-pagination"
+      @change="emit('page-change', $event)"
+    />
+  </section>
 </template>
-
 <script setup>
-import { computed, ref, watch } from 'vue';
-import { createFromIconfontCN } from '@ant-design/icons-vue';
-import moment from 'moment';
-import { getGameList } from '@/api/bog'
-import dicts from '@/model/dicts/index'
+import { computed, nextTick, ref, watch } from 'vue'
+import { usePlayerHistory } from '@/composables/usePlayerHistory'
 import { buildRuntimeRiotAssetUrl } from '@/utils/backend'
 import { resolveQueueName } from '@/utils/queue'
-import Pagination from './Pagination.vue';
-
+import dicts from '@/model/dicts'
+import AssetImage from './AssetImage.vue'
 const props = defineProps({
-    puuid: {
-        type: String,
-        default: ''
-    },
-    pageSize: {
-        type: Number,
-        default: 9
-    },
-    showPagination: {
-        type: Boolean,
-        default: true
-    },
-    showResultIcon: {
-        type: Boolean,
-        default: true
-    },
-    selectable: {
-        type: Boolean,
-        default: true
-    },
-    autoSelectFirst: {
-        type: Boolean,
-        default: true
-    },
-    selectedGameId: {
-        type: Number,
-        default: 0
-    },
+  puuid: { default: '' },
+  scope: { default: '' },
+  page: { default: 1 },
+  selectedGameId: { default: 0 },
+  offline: Boolean,
+  filters: { default: () => ({}) },
+  autoSelectFirst: Boolean,
+  showPagination: { default: true },
+  scrollTop: { default: 0 },
 })
-
-const emit = defineEmits(['game-change', 'page-loaded'])
-
-const IconFont = createFromIconfontCN({
-    scriptUrl: import.meta.env.VITE_ICON_URL,
-});
-const queueMap = dicts.getDict('queue');
-const loading = ref(false);
-const list = ref([]);
-const currentPage = ref(1);
-const totalItems = ref(0);
-const hasNext = ref(false);
-const totalPagesFromTotal = computed(() => Math.max(1, Math.ceil(totalItems.value / props.pageSize)));
-const totalPages = computed(() => {
-    if (hasNext.value) {
-        return Math.max(totalPagesFromTotal.value, currentPage.value + 1)
-    }
-    return Math.max(totalPagesFromTotal.value, currentPage.value)
-});
-
-const formatHistoryItem = (historyItem) => {
-    const championIcon = buildRuntimeRiotAssetUrl(`/v1/champion-icons/${historyItem.championId}.png`)
-    const desc = moment(historyItem.createTime).format('MM-DD HH:mm') + '  KDA:' + historyItem.kills + '-' + historyItem.deaths + '-' + historyItem.assists
-    return {
-        desc: desc,
-        gameId: historyItem.gameId,
-        queue: resolveQueueName(queueMap, historyItem.queueId, historyItem.gameMode),
-        championIcon: championIcon,
-        win: historyItem.win,
-        assists: historyItem.assists,
-        kills: historyItem.kills,
-        deaths: historyItem.deaths,
-    }
+const emit = defineEmits([
+  'game-change',
+  'page-loaded',
+  'page-change',
+  'scroll-change',
+])
+const query = computed(() => ({
+  puuid: props.puuid,
+  scope: props.scope,
+  page: props.page,
+  offline: props.offline,
+  ...props.filters,
+}))
+const { list, total, meta, loading, error, refresh } = usePlayerHistory(query)
+const queueMap = dicts.getDict('queue')
+const scrollElement = ref(null)
+const selectGame = (item) =>
+  emit(
+    'game-change',
+    item.gameId,
+    item.scope || meta.value?.scope || props.scope,
+  )
+const formatDate = (value) =>
+  value
+    ? new Date(value).toLocaleString('zh-CN', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '时间未知'
+const duration = (value) => (value ? `${Math.floor(value / 60)}分` : '—')
+watch(list, async (games) => {
+  emit('page-loaded', { list: games, total: total.value, meta: meta.value })
+  if (props.autoSelectFirst && games.length && !props.selectedGameId)
+    selectGame(games[0])
+  await nextTick()
+  if (scrollElement.value) scrollElement.value.scrollTop = props.scrollTop
+})
+function markDetail({ gameId, cached }) {
+  const item = list.value.find((item) => String(item.gameId) === String(gameId))
+  if (item) item.hasDetail = cached
 }
-
-const fetchGameHistory = () => {
-    if (!props.puuid) return
-    loading.value = true
-    getGameList(props.puuid, currentPage.value - 1, props.pageSize).then(res => {
-        const pageData = Array.isArray(res.data) ? {
-            list: res.data,
-            total: res.data.length,
-            hasNext: res.data.length >= props.pageSize,
-        } : res.data
-        const games = pageData.list || []
-        totalItems.value = pageData.total || 0
-        hasNext.value = !!pageData.hasNext
-        list.value = games.map(formatHistoryItem)
-        emit('page-loaded', {
-            ...pageData,
-            currentPage: currentPage.value,
-            totalPages: totalPages.value,
-        })
-        if (props.autoSelectFirst && list.value.length !== 0) {
-            emit('game-change', list.value[0].gameId)
-        }
-    }).finally(() => {
-        loading.value = false
-    })
-}
-
-const selectGame = (gameId) => {
-    if (!props.selectable) return
-    emit('game-change', gameId)
-}
-
-const handlePageChange = (page) => {
-    currentPage.value = page
-    fetchGameHistory()
-};
-
-watch(() => props.puuid, () => {
-    currentPage.value = 1
-    totalItems.value = 0
-    hasNext.value = false
-    list.value = []
-    fetchGameHistory()
-}, { immediate: true })
-
-defineExpose({ fetchGameHistory })
-
-const backgroundColor = (win) => {
-    return win ? 'gradient-background-win' : 'gradient-background-lose';
-}
+defineExpose({ fetchGameHistory: refresh, markDetail })
 </script>
-
-<style scoped>
-.game-history-list :deep(.ant-list-item) {
-    cursor: pointer;
-    border-radius: 4px;
-    margin-bottom: 6px;
-}
-
-.gradient-background-win {
-    background: linear-gradient(to right, #8fd6a9 0%, #e6f7ed 72%);
-}
-
-.gradient-background-win.active {
-    background: #74c995;
-}
-
-.gradient-background-lose {
-    background: linear-gradient(to right, #e39a9a 0%, #f9e7e7 72%);
-}
-
-.gradient-background-lose.active {
-    background: #d98282;
-}
-</style>

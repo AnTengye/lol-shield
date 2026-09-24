@@ -1,6 +1,7 @@
 package client
 
 import (
+	"golang.org/x/sync/errgroup"
 	"strconv"
 
 	"github.com/AnTengye/lol-shield/configs"
@@ -10,7 +11,8 @@ import (
 	"github.com/AnTengye/lol-shield/internal/pkg/syslog"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
+	"net/http"
+	"strings"
 )
 
 type ConfigReq struct {
@@ -52,7 +54,7 @@ func UpdateConfig(p *Shield) gin.HandlerFunc {
 			resp.WriteErrRes(ctx, resp.FileOperationError.WithField(err.Error()))
 			return
 		}
-		//p.notice(ctx, voReq)
+		resp.WriteRespData(ctx, gin.H{"saved": true})
 	}
 }
 
@@ -70,13 +72,17 @@ func GetLcu(p *Shield) gin.HandlerFunc {
 func GetAssets(p *Shield) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		assetPath := ctx.Param("assets")
-		asset, err := p.lcuService.GetCustomAsset(assetPath)
+		if strings.Contains(assetPath, "..") || strings.ContainsAny(assetPath, "\\\\\x00") {
+			ctx.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+		asset, err := p.historyService.Asset(assetPath)
 		if err != nil {
 			syslog.L.Errorw("资源代理请求失败", "path", assetPath, "error", err)
 			resp.WriteErrRes(ctx, resp.LcuConnectErr.WithField(err.Error()))
 			return
 		}
-		ctx.Header("Cache-Control", "public, max-age=31536000")
+		ctx.Header("Cache-Control", "no-store")
 		if asset.ContentType == "" {
 			asset.ContentType = lcu.DetectAssetContentType(assetPath, asset.Body)
 		}
@@ -90,7 +96,13 @@ func GetAssets(p *Shield) gin.HandlerFunc {
 
 func GetUser(p *Shield) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
+		p.stateMu.RLock()
 		summoner := p.currSummoner
+		p.stateMu.RUnlock()
+		if summoner == nil {
+			resp.WriteErrRes(ctx, resp.DataNotFound.WithField("客户端未连接"))
+			return
+		}
 		data, err := p.lcuService.GetRankedData()
 		if err != nil {
 			resp.WriteErrRes(ctx, resp.LcuConnectErr.WithField(err.Error()))
@@ -141,71 +153,8 @@ func ListGames(p *Shield) gin.HandlerFunc {
 			resp.WriteErrRes(ctx, resp.InputDataErr)
 			return
 		}
-		begin := pageNum * pageSizeNum
-		syslog.L.Infow(
-			"战绩分页查询请求",
-			"puuid", uid,
-			"page", pageNum,
-			"pageSize", pageSizeNum,
-			"lcuBegIndex", begin,
-			"lcuEndIndex", begin+pageSizeNum-1,
-		)
-		data, err := p.lcuService.ListGamesByUID(uid, begin, pageSizeNum)
-		if err != nil {
-			syslog.L.Errorw(
-				"战绩分页查询LCU调用失败",
-				"puuid", uid,
-				"page", pageNum,
-				"pageSize", pageSizeNum,
-				"error", err,
-			)
-			resp.WriteErrRes(ctx, resp.LcuConnectErr.WithField(err.Error()))
-			return
-		}
-		syslog.L.Infow(
-			"战绩分页查询LCU解析结果",
-			"puuid", uid,
-			"page", pageNum,
-			"pageSize", pageSizeNum,
-			"gameCount", data.Games.GameCount,
-			"gameIndexBegin", data.Games.GameIndexBegin,
-			"gameIndexEnd", data.Games.GameIndexEnd,
-			"returnedGames", len(data.Games.Games),
-		)
-		if len(data.Games.Games) == 0 {
-			resp.WriteErrRes(ctx, resp.DataNotFound.WithField("没有足够的数据"))
-			return
-		}
-		pagedGames := sliceRequestedGames(data.Games.Games, data.Games.GameIndexBegin, begin, pageSizeNum)
-		respData := make([]resp.GameList, 0, len(pagedGames))
-		for _, game := range pagedGames {
-			if len(game.Participants) == 0 {
-				syslog.L.Errorf("没有参与比赛的数据", zap.Int64("gameId", game.GameId))
-				//resp.WriteErrRes(ctx, resp.DataNotFound.WithField("没有足够的队列"))
-				continue
-			}
-			participant := game.Participants[0]
-			respData = append(respData, resp.GameList{
-				CreateTime: game.GameCreation,
-				GameId:     game.GameId,
-				GameMode:   string(game.GameMode),
-				GameType:   string(game.GameType),
-				ChampionId: int64(participant.ChampionId),
-				Win:        participant.Stats.Win,
-				Assists:    participant.Stats.Assists,
-				Kills:      participant.Stats.Kills,
-				Deaths:     participant.Stats.Deaths,
-				QueueId:    int64(game.QueueId),
-			})
-
-		}
-		resp.WriteRespData(ctx, resp.GameListPage{
-			List:     respData,
-			Page:     pageNum,
-			PageSize: pageSizeNum,
-			Total:    data.Games.GameCount,
-			HasNext:  begin+len(respData) < data.Games.GameCount,
-		})
+		result, err := p.historyService.List(ctx.Request.Context(), uid, ctx.Query("scope"), ctx.Query("policy"), pageNum, pageSizeNum)
+		writeHistoryResult(ctx, result, err)
 	}
 }
 
@@ -234,13 +183,13 @@ func GetGameDetail(p *Shield) gin.HandlerFunc {
 			resp.WriteErrRes(ctx, resp.InputDataErr)
 			return
 		}
-		gameIdNum, _ := strconv.ParseInt(gameId, 10, 64)
-		data, err := p.lcuService.GetGameSummary(gameIdNum)
-		if err != nil {
-			resp.WriteErrRes(ctx, resp.LcuConnectErr.WithField(err.Error()))
+		gameIdNum, err := strconv.ParseInt(gameId, 10, 64)
+		if err != nil || gameIdNum <= 0 {
+			ctx.JSON(400, gin.H{"code": "INPUT_ERROR", "message": "无效对局 ID"})
 			return
 		}
-		resp.WriteRespData(ctx, data)
+		result, err := p.historyService.Detail(ctx.Request.Context(), gameIdNum, ctx.Query("scope"), ctx.Query("policy"))
+		writeHistoryResult(ctx, result, err)
 	}
 }
 
@@ -251,19 +200,15 @@ func GetRankHighest(p *Shield) gin.HandlerFunc {
 			resp.WriteErrRes(ctx, resp.InputDataErr)
 			return
 		}
-		data, err := p.lcuService.GetRankedDataByPUUID(puuid)
-		if err != nil {
-			resp.WriteErrRes(ctx, resp.LcuConnectErr.WithField(err.Error()))
-			return
-		}
-		resp.WriteRespData(ctx, data.HighestRankedEntry)
+		result, err := p.historyService.Rank(ctx.Request.Context(), puuid, ctx.Query("scope"), ctx.Query("policy"))
+		writeHistoryResult(ctx, result, err)
 	}
 }
 
 func GetMulRankHighest(p *Shield) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		puuids := ctx.QueryArray("puuid")
-		if len(puuids) == 0 {
+		if len(puuids) == 0 || len(puuids) > 20 {
 			resp.WriteErrRes(ctx, resp.InputDataErr)
 			return
 		}
@@ -272,33 +217,41 @@ func GetMulRankHighest(p *Shield) gin.HandlerFunc {
 			Data  interface{} `json:"data"`
 		}
 		result := make([]Temp, len(puuids))
-		for i, puuid := range puuids {
-			if puuid == "" {
+		group := new(errgroup.Group)
+		group.SetLimit(4)
+		scope, policy := ctx.Query("scope"), ctx.Query("policy")
+		for _, puuid := range puuids {
+			if puuid == "" || len(puuid) > 100 {
 				resp.WriteErrRes(ctx, resp.InputDataErr)
 				return
 			}
-			data, err := p.lcuService.GetRankedDataByPUUID(puuid)
-			if err != nil {
-				resp.WriteErrRes(ctx, resp.LcuConnectErr.WithField(err.Error()))
-				return
-			}
-			result[i] = Temp{
-				Puuid: puuid,
-				Data:  data.HighestRankedEntry,
-			}
 		}
+		for i, puuid := range puuids {
+			group.Go(func() error {
+				data, err := p.historyService.Rank(ctx.Request.Context(), puuid, scope, policy)
+				result[i].Puuid = puuid
+				if err == nil {
+					result[i].Data = data.Data
+				}
+				return nil
+			})
+		}
+		_ = group.Wait()
 		resp.WriteRespData(ctx, result)
 	}
 }
 
 func GetGameRunning(p *Shield) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
+		p.stateMu.RLock()
+		game := p.CurGame
+		p.stateMu.RUnlock()
 		if p.getGameState() == models.GameFlowInProgress {
-			if p.CurGame == nil {
+			if game == nil {
 				resp.WriteErrRes(ctx, resp.DataNotFound.WithField("获取数据失败"))
 				return
 			}
-			resp.WriteRespData(ctx, *p.CurGame)
+			resp.WriteRespData(ctx, *game)
 		} else {
 			resp.WriteErrRes(ctx, resp.DataNotFound.WithField("未在比赛中"))
 		}

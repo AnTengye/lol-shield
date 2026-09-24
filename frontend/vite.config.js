@@ -9,6 +9,12 @@ function resolve(dir) {
 // https://vitejs.dev/config/
 export default defineConfig({
     plugins: [vue()],
+    test: {
+        environment: 'jsdom',
+        include: ['src/views/**/*.test.js', 'src/composables/**/*.test.js', 'src/websocket/**/*.test.js'],
+        environmentOptions: { jsdom: { url: 'http://localhost:5173' } },
+        clearMocks: true,
+    },
     resolve: {
         alias: {
             '@': resolve('src'),

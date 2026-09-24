@@ -28,6 +28,7 @@
     "active": true,
     "useLocalToolsDir": true,
     "targets": ["nsis"],
+    "icon": ["icons/icon.ico"],
     "externalBin": ["../bin/lol-shield"],
     "windows": {
       "nsis": {

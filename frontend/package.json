@@ -8,6 +8,9 @@
     "build": "vite build",
     "generate:queues": "node scripts/generate-queue-metadata.mjs",
     "test:structure": "node --test src/views/RealTime.structure.test.mjs",
+    "test": "vitest run",
+    "test:utils": "node --test src/utils/*.test.js src/views/RealTime.structure.test.mjs",
+    "test:e2e": "playwright test",
     "preview": "vite preview",
     "tauri": "cd .. && frontend\\node_modules\\.bin\\tauri.cmd",
     "tauri:dev": "cd .. && frontend\\node_modules\\.bin\\tauri.cmd dev",
@@ -26,11 +29,15 @@
     "vuex": "^4.1.0"
   },
   "devDependencies": {
-    "@vue/compiler-dom": "3.4.35",
-    "@vue/compiler-sfc": "3.4.35",
+    "@playwright/test": "1.58.2",
     "@tauri-apps/cli": "^2.0.0",
     "@vitejs/plugin-vue": "^5.0.5",
-    "vite": "^5.3.4"
+    "@vue/compiler-dom": "3.4.35",
+    "@vue/compiler-sfc": "3.4.35",
+    "@vue/test-utils": "2.4.6",
+    "jsdom": "25.0.1",
+    "vite": "^5.3.4",
+    "vitest": "2.1.9"
   },
   "packageManager": "pnpm@10.33.4+sha512.1c67b3b359b2d408119ba1ed289f34b8fc3c6873412bec6fd264fbdc82489e510fcbecb9ce9d22dae7f3b76269d8441046014bdca53b9979cd7a561ad631b800"
 }
