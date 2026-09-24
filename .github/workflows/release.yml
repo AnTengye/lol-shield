@@ -18,22 +18,22 @@ jobs:
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
         with:
           version: 10
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "20"
           cache: "pnpm"
           cache-dependency-path: frontend/pnpm-lock.yaml
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
@@ -108,8 +108,12 @@ jobs:
           $version = if ($tag.StartsWith("v")) { $tag.Substring(1) } else { $tag }
           $repo = "${{ github.repository }}"
           $bundleDir = Join-Path $PWD "src-tauri/target/release/bundle/nsis"
-          $bundle = Get-ChildItem -Path $bundleDir -File -Filter "*.nsis.zip" | Select-Object -First 1
-          if (-not $bundle) { throw "未找到 NSIS 更新包，请确认 updater 产物已生成" }
+          # createUpdaterArtifacts=true（v2 格式）下，Windows 更新包就是 NSIS 安装包本身及其 .sig 签名。
+          $bundle = Get-ChildItem -Path $bundleDir -File -Filter "*-setup.exe" | Select-Object -First 1
+          if (-not $bundle) {
+            $found = (Get-ChildItem -Path $bundleDir -File | Select-Object -ExpandProperty Name) -join ", "
+            throw "未找到 NSIS 安装包，请确认 updater 产物已生成（nsis 目录现有：$found）"
+          }
           $signaturePath = "$($bundle.FullName).sig"
           if (-not (Test-Path $signaturePath)) { throw "缺少更新包签名文件：$signaturePath" }
 
@@ -137,16 +141,6 @@ jobs:
           files: |
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/bundle/nsis/*.exe.sha256
-
-      - name: Publish updater bundle
-        if: ${{ env.TAURI_SIGNING_PRIVATE_KEY != '' }}
-        uses: softprops/action-gh-release@v3
-        with:
-          prerelease: ${{ contains(github.ref_name, '-') }}
-          fail_on_unmatched_files: true
-          files: |
-            src-tauri/target/release/bundle/nsis/*.nsis.zip
-            src-tauri/target/release/bundle/nsis/*.nsis.zip.sig
 
       - name: Remove previous updater manifest
         if: ${{ env.TAURI_SIGNING_PRIVATE_KEY != '' }}
