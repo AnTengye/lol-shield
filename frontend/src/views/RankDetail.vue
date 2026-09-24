@@ -48,11 +48,7 @@
       </p>
       <div class="section-toolbar">
         <span>双方记分板</span
-        ><a-switch
-          v-model:checked="expanded"
-          checked-children="更多数据"
-          un-checked-children="更多数据"
-        />
+        ><span class="muted">高亮数值为全场最高</span>
       </div>
       <section v-for="team in teams" :key="team.id" class="scoreboard">
         <header class="team-summary">
@@ -86,7 +82,10 @@
               ><small class="muted">{{ rankLabel(ranks[player.puuid]) }}</small>
             </div>
           </div>
-          <div class="participant-kda">
+          <div
+            class="participant-kda"
+            :class="{ 'stat-top': isTop(player, 'kda') }"
+          >
             <strong
               >{{ value(player.stats.kills) }}/{{
                 value(player.stats.deaths)
@@ -118,26 +117,41 @@
               :label="`物品 ${player.stats[`item${slot - 1}`] || '空'}`"
             />
           </div>
-          <div class="participant-stat">
+          <div
+            class="participant-stat"
+            :class="{
+              'stat-top': isTop(player, 'totalDamageDealtToChampions'),
+            }"
+          >
             <small>伤害</small
             ><strong>{{
               number(player.stats.totalDamageDealtToChampions)
             }}</strong>
           </div>
-          <div class="participant-stat">
+          <div
+            class="participant-stat"
+            :class="{ 'stat-top': isTop(player, 'goldEarned') }"
+          >
             <small>经济</small
             ><strong>{{ number(player.stats.goldEarned) }}</strong>
           </div>
-          <div v-if="expanded" class="extended-stats">
-            <span>承伤 {{ number(player.stats.totalDamageTaken) }}</span
-            ><span>视野 {{ value(player.stats.visionScore) }}</span
-            ><span>控制 {{ value(player.stats.timeCCingOthers) }}秒</span
+          <div class="participant-highlights">
+            <span :class="{ 'stat-top': isTop(player, 'totalDamageTaken') }"
+              >承伤 {{ number(player.stats.totalDamageTaken) }}</span
             ><span
+              :class="{
+                'stat-top': isTop(player, 'damageDealtToObjectives'),
+              }"
               >目标伤害 {{ number(player.stats.damageDealtToObjectives) }}</span
+            ><span :class="{ 'stat-top': isTop(player, 'timeCCingOthers') }"
+              >控制 {{ ccSeconds(player.stats.timeCCingOthers) }}秒</span
+            ><span :class="{ 'stat-top': isTop(player, 'visionScore') }"
+              >视野 {{ value(player.stats.visionScore) }}</span
             ><span
-              v-if="player.kda !== null && player.kda === highestKda"
-              class="win-text"
-              >最高 KDA</span
+              v-for="label in leaderLabels(player)"
+              :key="label"
+              class="leader-chip"
+              >{{ label }}</span
             >
           </div>
         </div>
@@ -154,7 +168,7 @@
   </section>
 </template>
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { useMatchDetail } from '@/composables/useMatchDetail'
 import { buildRuntimeRiotAssetUrl as asset } from '@/utils/backend'
 import { buildRuntimeGameItemIconUrl } from '@/utils/assets'
@@ -186,7 +200,6 @@ watch(errorCode, (code) => {
   if (props.offline && ['CACHE_MISS', 'CACHE_CORRUPT'].includes(code))
     emit('availability-change', { gameId: props.gameId, cached: false })
 })
-const expanded = ref(false)
 const spells = dicts.getFeDict('spell')
 const items = dicts.getFeDict('gameItem')
 const rankMap = dicts.getDict('rank')
@@ -237,14 +250,48 @@ const players = computed(() => {
         ? `${identity.gameName}${identity.tagLine ? '#' + identity.tagLine : ''}`
         : identity.summonerName || '未知玩家',
       kda: [stats.kills, stats.deaths, stats.assists].every(Number.isFinite)
-        ? (stats.kills + stats.assists) / Math.max(1, stats.deaths)
+        ? Math.round(
+            ((stats.kills + stats.assists) / Math.max(1, stats.deaths)) * 10,
+          ) / 10
         : null,
     }
   })
 })
-const highestKda = computed(() =>
-  Math.max(...players.value.map((p) => p.kda ?? -1)),
-)
+// 全场最高值展示：默认全部可见，不需要额外点击展开。
+const leaderStats = [
+  ['kda', '最高 KDA'],
+  ['goldEarned', '最高经济'],
+  ['totalDamageDealtToChampions', '最高伤害'],
+  ['totalDamageTaken', '最高承伤'],
+  ['damageDealtToObjectives', '最高目标伤害'],
+  ['timeCCingOthers', '最高控制'],
+  ['visionScore', '最高视野'],
+  ['assists', '最多助攻'],
+]
+const statValue = (player, key) =>
+  key === 'kda' ? player.kda : player.stats[key]
+const maxStats = computed(() => {
+  const result = {}
+  leaderStats.forEach(([key]) => {
+    const values = players.value
+      .map((player) => statValue(player, key))
+      .filter((value) => Number.isFinite(value))
+    result[key] = values.length ? Math.max(...values) : null
+  })
+  return result
+})
+const isTop = (player, key) => {
+  const value = statValue(player, key)
+  return Number.isFinite(value) && value === maxStats.value[key]
+}
+const leaderLabels = (player) => {
+  const labels = leaderStats
+    .filter(([key]) => isTop(player, key))
+    .map(([, label]) => label)
+  if ((player.stats.pentaKills || 0) > 0) labels.push('五杀')
+  return labels
+}
+const ccSeconds = (value) => (Number.isFinite(value) ? Math.round(value) : '—')
 const resultClass = (win) =>
   win === null ? 'muted' : win ? 'win-text' : 'loss-text'
 const sumStat = (members, key) => {

@@ -272,6 +272,66 @@ describe('共用战绩交互', () => {
     expect(wrapper.findAll('.team-summary')[1].text()).toContain('— 金币')
     expect(wrapper.findAll('.participant-kda')[1].text()).toContain('—/—/—')
   })
+  it('详情默认展示全部数据，并高亮全场最高值', async () => {
+    const rich = detail(42)
+    rich.data.participants = [
+      {
+        participantId: 1,
+        teamId: 100,
+        championId: 1,
+        stats: {
+          kills: 7,
+          deaths: 2,
+          assists: 9,
+          goldEarned: 9000,
+          totalDamageDealtToChampions: 12000,
+          totalDamageTaken: 21000,
+          damageDealtToObjectives: 3000,
+          timeCCingOthers: 12.4,
+          visionScore: 20,
+          pentaKills: 1,
+        },
+      },
+      {
+        participantId: 2,
+        teamId: 300,
+        championId: 2,
+        stats: {
+          kills: 3,
+          deaths: 5,
+          assists: 4,
+          goldEarned: 15000,
+          totalDamageDealtToChampions: 30000,
+          totalDamageTaken: 9000,
+          damageDealtToObjectives: 8000,
+          timeCCingOthers: 30.2,
+          visionScore: 45,
+          pentaKills: 0,
+        },
+      },
+    ]
+    api.getGameDetail.mockResolvedValue(rich)
+    const wrapper = render(RankDetail, { gameId: 42, scope })
+    await flushPromises()
+    const rows = wrapper.findAll('.participant')
+    expect(rows).toHaveLength(2)
+    // 无需任何点击即可看到全部数据项
+    for (const label of ['伤害', '经济', '承伤', '目标伤害', '控制', '视野'])
+      expect(rows[0].text()).toContain(label)
+    expect(rows[0].text()).toContain('控制 12秒')
+    // 全场最高只标在对应玩家上
+    expect(rows[0].findAll('.stat-top')).toHaveLength(2)
+    expect(rows[1].findAll('.stat-top')).toHaveLength(5)
+    expect(rows[0].text()).toContain('最高 KDA')
+    expect(rows[0].text()).toContain('最多助攻')
+    expect(rows[0].text()).toContain('五杀')
+    expect(rows[1].text()).toContain('最高伤害')
+    expect(rows[1].text()).toContain('最高经济')
+    expect(rows[1].text()).toContain('最高目标伤害')
+    expect(rows[1].text()).toContain('最高控制')
+    expect(rows[1].text()).toContain('最高视野')
+    expect(rows[1].text()).not.toContain('五杀')
+  })
   it('离线服务故障保留真实错误，不把有效详情标为淘汰', async () => {
     api.getGameDetail.mockRejectedValue(new Error('本地服务连接失败'))
     const wrapper = render(RankDetail, { gameId: 42, scope, offline: true })

@@ -221,6 +221,12 @@ test('真实 sidecar：实时详情、分页返回、离线重启、容量管理
   await page.locator('.history-row').first().click()
   await expect(page.locator('.detail-header')).toBeVisible()
   await expect(page.locator('.cache-label')).toContainText('可离线查看')
+  // 全部数据项默认可见，且全场最高值有高亮标注，无需额外点击展开。
+  await expect(page.locator('.participant-highlights').first()).toBeVisible()
+  expect(await page.locator('.participant .stat-top').count()).toBeGreaterThan(
+    0,
+  )
+  await expect(page.locator('.leader-chip').first()).toBeVisible()
   await page.locator('.ant-drawer-close').focus()
   await page.keyboard.press('Escape')
   await expect(page.locator('.detail-header')).toHaveCount(0)
