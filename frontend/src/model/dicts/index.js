@@ -1,4 +1,4 @@
-import enumData from './enum'
+import enumData from './enum.js'
 export default {
     map: enumData.dictAttr || {},
     feMap: enumData.dict || {},
