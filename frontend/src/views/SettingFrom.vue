@@ -139,8 +139,57 @@
         </div>
       </div>
     </section>
+    <section class="panel settings-section">
+      <header>
+        <h2>版本与更新</h2>
+        <p class="muted">桌面版打开时在后台静默检查，不打断当前操作。</p>
+      </header>
+      <div class="setting-row">
+        <div>
+          <strong>当前版本</strong>
+          <p>{{ versionLabel }}</p>
+        </div>
+        <a-button :loading="checking" :disabled="updateBusy" @click="checkNow"
+          >检查更新</a-button
+        >
+      </div>
+      <div class="setting-row">
+        <div>
+          <strong>启动时自动检查</strong>
+          <p>发现新版本时只提示，不会自动下载或安装。</p>
+        </div>
+        <a-switch
+          :checked="preferences.autoCheckUpdate"
+          @change="preference('autoCheckUpdate', $event)"
+        />
+      </div>
+      <div v-if="update" class="setting-row">
+        <div>
+          <strong>发现新版本 v{{ update.version }}</strong>
+          <p>{{ updateHint }}</p>
+        </div>
+        <a-button
+          type="primary"
+          :loading="updateBusy"
+          :disabled="updateBusy"
+          @click="installNow"
+          >一键更新</a-button
+        >
+      </div>
+      <a-progress
+        v-if="updateBusy"
+        :percent="updateProgress"
+        :show-info="false"
+      />
+      <a-alert
+        v-if="updateError"
+        type="warning"
+        :message="updateError"
+        show-icon
+      />
+    </section>
     <footer class="about muted">
-      LOL Shield {{ version }} · 本地运行，专注对局
+      LOL Shield {{ desktopVersion || version }} · 本地运行，专注对局
     </footer>
   </div>
 </template>
@@ -158,6 +207,39 @@ import {
 } from '@/api/bog'
 const store = useStore(),
   preferences = computed(() => store.state.ui.preferences)
+const update = computed(() => store.state.ui.update),
+  updateBusy = computed(() => store.getters['ui/updateBusy']),
+  updateProgress = computed(() => store.state.ui.updateProgress),
+  updateError = computed(() => store.state.ui.updateError),
+  desktopVersion = computed(() => store.state.ui.appVersion),
+  checking = computed(() => store.state.ui.updateStatus === 'checking')
+const statusText = computed(() => {
+  const state = store.state.ui
+  if (state.updateStatus === 'checking') return '正在检查更新…'
+  if (state.updateStatus === 'downloading')
+    return state.updateDetail || '正在下载更新…'
+  if (state.updateStatus === 'installing')
+    return state.updateDetail || '正在安装更新…'
+  if (state.updateStatus === 'failed') return state.updateError || '更新失败'
+  if (state.update) return `发现新版本 v${state.update.version}`
+  if (state.updateCheckedAt) return '已是最新版本'
+  return '尚未检查更新'
+})
+const versionLabel = computed(() =>
+  [desktopVersion.value || version.value || '未知', statusText.value]
+    .filter(Boolean)
+    .join(' · '),
+)
+const updateHint = computed(
+  () =>
+    store.state.ui.updateDetail || '下载后自动安装并重启，无需手动操作。',
+)
+async function checkNow() {
+  const result = await store.dispatch('ui/checkUpdate', { silent: false })
+  if (result) message.success(`发现新版本 v${result.version}`)
+  else if (!store.state.ui.updateError) message.success('已是最新版本')
+}
+const installNow = () => store.dispatch('ui/installUpdate')
 const [modal, contextHolder] = Modal.useModal()
 const form = reactive({
   autoConfirm: false,
@@ -252,6 +334,7 @@ function beforeUnload(event) {
 onMounted(async () => {
   window.addEventListener('beforeunload', beforeUnload)
   loadStats()
+  store.dispatch('ui/loadAppVersion')
   getVersion()
     .then((result) => {
       version.value = result.data.version

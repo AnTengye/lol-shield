@@ -3,5 +3,12 @@
   "identifier": "default",
   "description": "Default desktop permissions for LOL Shield",
   "windows": ["main"],
-  "permissions": ["core:default", "core:window:allow-close", "core:window:allow-destroy", "shell:allow-open"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-close",
+    "core:window:allow-destroy",
+    "shell:allow-open",
+    "updater:default",
+    "process:allow-restart"
+  ]
 }

@@ -75,6 +75,7 @@
             ×
           </button>
         </div>
+        <UpdateNotice v-if="route.path !== '/settings'" />
         <main class="main-content"><router-view /></main>
       </div>
     </div>
@@ -97,6 +98,7 @@ import { getStatus, getUser } from '@/api/bog'
 import { createWebSocket, destroyWebSocket } from '@/websocket'
 import { buildRuntimeRiotAssetUrl as asset } from '@/utils/backend'
 import AssetImage from '@/views/components/AssetImage.vue'
+import UpdateNotice from '@/views/components/UpdateNotice.vue'
 const route = useRoute(),
   router = useRouter(),
   store = useStore()
@@ -181,6 +183,8 @@ onMounted(async () => {
   createWebSocket(store)
   pollStatus()
   timer = setInterval(pollStatus, 5000)
+  if (store.state.ui.preferences.autoCheckUpdate)
+    store.dispatch('ui/checkUpdate', { silent: true })
   if (window.__TAURI_INTERNALS__) {
     const desktop = getCurrentWindow()
     const unlisten = await desktop.onCloseRequested((event) => {

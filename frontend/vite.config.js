@@ -11,7 +11,7 @@ export default defineConfig({
     plugins: [vue()],
     test: {
         environment: 'jsdom',
-        include: ['src/views/**/*.test.js', 'src/composables/**/*.test.js', 'src/websocket/**/*.test.js'],
+        include: ['src/views/**/*.test.js', 'src/composables/**/*.test.js', 'src/websocket/**/*.test.js', 'src/store/**/*.test.js'],
         environmentOptions: { jsdom: { url: 'http://localhost:5173' } },
         clearMocks: true,
     },
