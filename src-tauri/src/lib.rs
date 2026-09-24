@@ -16,6 +16,7 @@ fn start_status_bridge(app: tauri::AppHandle) {
     tauri::async_runtime::spawn(async move {
         loop {
             if let Ok((mut stream, _)) = connect_async(SIDECAR_WS_URL).await {
+                let _ = app.emit("shield-transport", true);
                 while let Some(message) = stream.next().await {
                     match message {
                         Ok(Message::Text(text)) => {
@@ -29,6 +30,7 @@ fn start_status_bridge(app: tauri::AppHandle) {
                 }
             }
 
+            let _ = app.emit("shield-transport", false);
             tokio::time::sleep(Duration::from_secs(3)).await;
         }
     });
@@ -48,11 +50,15 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .manage(SidecarState(Mutex::new(None)))
         .setup(|app| {
+            let data_dir = app.path().app_local_data_dir()?;
+            std::fs::create_dir_all(&data_dir)?;
             let sidecar = app
                 .shell()
                 .sidecar("lol-shield")
                 .expect("failed to create lol-shield sidecar command")
-                .arg("--tauri-sidecar");
+                .arg("--tauri-sidecar")
+                .arg("--data-dir")
+                .arg(data_dir.to_string_lossy().as_ref());
 
             let (_rx, child) = sidecar.spawn().expect("failed to spawn lol-shield sidecar");
 
@@ -64,10 +70,15 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
+            if matches!(event, tauri::WindowEvent::Destroyed) {
                 stop_sidecar(window.app_handle());
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                stop_sidecar(app);
+            }
+        });
 }

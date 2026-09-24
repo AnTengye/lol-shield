@@ -5,6 +5,7 @@ import (
 	"mime"
 	"net/url"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -21,6 +22,36 @@ func ResolveRequest(s *Scenario, rawURL string) ([]byte, string, int) {
 		key := puuid + "|" + u.Query().Get("begIndex") + "|" + u.Query().Get("endIndex")
 		if fixture, ok := s.MatchHistory[key]; ok {
 			return fixture.Raw, "application/json", 200
+		}
+		// 非预录窗口从已有 fixture 合并切片，支持前端统一的 20 场分页。
+		begin, e1 := strconv.Atoi(u.Query().Get("begIndex"))
+		end, e2 := strconv.Atoi(u.Query().Get("endIndex"))
+		if e1 != nil || e2 != nil || begin < 0 || end < begin || end-begin >= 100 {
+			return []byte(`{"error":"invalid page"}`), "application/json", 400
+		}
+		unique := map[int64]lcu.GameInfo{}
+		for k, fixture := range s.MatchHistory {
+			if strings.HasPrefix(k, puuid+"|") {
+				for _, game := range fixture.Games.Games {
+					unique[game.GameId] = game
+				}
+			}
+		}
+		if len(unique) > 0 {
+			games := make([]lcu.GameInfo, 0, len(unique))
+			for _, game := range unique {
+				games = append(games, game)
+			}
+			sort.Slice(games, func(i, j int) bool {
+				if games[i].GameCreation == games[j].GameCreation {
+					return games[i].GameId > games[j].GameId
+				}
+				return games[i].GameCreation > games[j].GameCreation
+			})
+			count := len(games)
+			window := games[min(begin, count):min(end+1, count)]
+			body, _ := json.Marshal(lcu.GameListResp{Games: lcu.GameList{GameCount: count, GameIndexBegin: begin, GameIndexEnd: end, Games: window}})
+			return body, "application/json", 200
 		}
 	}
 

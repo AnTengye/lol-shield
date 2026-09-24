@@ -9,6 +9,7 @@ import (
 	"mime"
 	"net/http"
 	"path/filepath"
+	"time"
 )
 
 const (
@@ -17,6 +18,7 @@ const (
 
 var (
 	httpCli = &http.Client{
+		Timeout: 12 * time.Second,
 		Transport: &http.Transport{
 			ForceAttemptHTTP2: true,
 			TLSClientConfig: &tls.Config{
@@ -87,7 +89,14 @@ func (cli client) req(method string, url string, data interface{}) ([]byte, erro
 		return nil, err
 	}
 	defer resp.Body.Close()
-	return io.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("客户端请求失败: HTTP %d", resp.StatusCode)
+	}
+	bodyData, err := io.ReadAll(io.LimitReader(resp.Body, 32_000_001))
+	if len(bodyData) > 32_000_000 {
+		return nil, fmt.Errorf("客户端响应过大")
+	}
+	return bodyData, err
 }
 
 func (cli client) getWithIO(url string) (io.Reader, int64, error) {

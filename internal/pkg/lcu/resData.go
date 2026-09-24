@@ -943,14 +943,14 @@ type GameSummary struct {
 		Spell1Id                  int    `json:"spell1Id"`
 		Spell2Id                  int    `json:"spell2Id"`
 		Stats                     struct {
-			Assists                         int  `json:"assists"`
+			Assists                         *int `json:"assists"`
 			CausedEarlySurrender            bool `json:"causedEarlySurrender"`
 			ChampLevel                      int  `json:"champLevel"`
 			CombatPlayerScore               int  `json:"combatPlayerScore"`
-			DamageDealtToObjectives         int  `json:"damageDealtToObjectives"`
+			DamageDealtToObjectives         *int `json:"damageDealtToObjectives"`
 			DamageDealtToTurrets            int  `json:"damageDealtToTurrets"`
 			DamageSelfMitigated             int  `json:"damageSelfMitigated"`
-			Deaths                          int  `json:"deaths"`
+			Deaths                          *int `json:"deaths"`
 			DoubleKills                     int  `json:"doubleKills"`
 			EarlySurrenderAccomplice        bool `json:"earlySurrenderAccomplice"`
 			FirstBloodAssist                bool `json:"firstBloodAssist"`
@@ -961,7 +961,7 @@ type GameSummary struct {
 			FirstTowerKill                  bool `json:"firstTowerKill"`
 			GameEndedInEarlySurrender       bool `json:"gameEndedInEarlySurrender"`
 			GameEndedInSurrender            bool `json:"gameEndedInSurrender"`
-			GoldEarned                      int  `json:"goldEarned"`
+			GoldEarned                      *int `json:"goldEarned"`
 			GoldSpent                       int  `json:"goldSpent"`
 			InhibitorKills                  int  `json:"inhibitorKills"`
 			Item0                           int  `json:"item0"`
@@ -972,7 +972,7 @@ type GameSummary struct {
 			Item5                           int  `json:"item5"`
 			Item6                           int  `json:"item6"`
 			KillingSprees                   int  `json:"killingSprees"`
-			Kills                           int  `json:"kills"`
+			Kills                           *int `json:"kills"`
 			LargestCriticalStrike           int  `json:"largestCriticalStrike"`
 			LargestKillingSpree             int  `json:"largestKillingSpree"`
 			LargestMultiKill                int  `json:"largestMultiKill"`
@@ -1036,10 +1036,10 @@ type GameSummary struct {
 			SightWardsBoughtInGame          int  `json:"sightWardsBoughtInGame"`
 			SubteamPlacement                int  `json:"subteamPlacement"`
 			TeamEarlySurrendered            bool `json:"teamEarlySurrendered"`
-			TimeCCingOthers                 int  `json:"timeCCingOthers"`
+			TimeCCingOthers                 *int `json:"timeCCingOthers"`
 			TotalDamageDealt                int  `json:"totalDamageDealt"`
-			TotalDamageDealtToChampions     int  `json:"totalDamageDealtToChampions"`
-			TotalDamageTaken                int  `json:"totalDamageTaken"`
+			TotalDamageDealtToChampions     *int `json:"totalDamageDealtToChampions"`
+			TotalDamageTaken                *int `json:"totalDamageTaken"`
 			TotalHeal                       int  `json:"totalHeal"`
 			TotalMinionsKilled              int  `json:"totalMinionsKilled"`
 			TotalPlayerScore                int  `json:"totalPlayerScore"`
@@ -1052,7 +1052,7 @@ type GameSummary struct {
 			TrueDamageTaken                 int  `json:"trueDamageTaken"`
 			TurretKills                     int  `json:"turretKills"`
 			UnrealKills                     int  `json:"unrealKills"`
-			VisionScore                     int  `json:"visionScore"`
+			VisionScore                     *int `json:"visionScore"`
 			VisionWardsBoughtInGame         int  `json:"visionWardsBoughtInGame"`
 			WardsKilled                     int  `json:"wardsKilled"`
 			WardsPlaced                     int  `json:"wardsPlaced"`

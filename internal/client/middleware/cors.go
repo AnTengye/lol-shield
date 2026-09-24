@@ -8,12 +8,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func AllowedOrigin(origin string) bool {
+	switch origin {
+	case "tauri://localhost", "http://tauri.localhost", "https://tauri.localhost", "http://localhost:5173", "http://127.0.0.1:5173":
+		return true
+	default:
+		return false
+	}
+}
+
 func Cors() gin.HandlerFunc {
 	return cors.New(
 		cors.Config{
-			AllowOriginFunc: func(origin string) bool {
-				return true
-			},
+			AllowOriginFunc: AllowedOrigin,
 			AllowMethods: []string{
 				http.MethodGet,
 				http.MethodHead,

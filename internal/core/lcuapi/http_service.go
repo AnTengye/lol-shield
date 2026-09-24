@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/AnTengye/lol-shield/internal/pkg/lcu"
 	"github.com/AnTengye/lol-shield/internal/pkg/lcu/models"
@@ -22,6 +23,7 @@ func NewHTTPService(baseURL string) Service {
 	return &httpService{
 		baseURL: strings.TrimRight(baseURL, "/"),
 		client: &http.Client{
+			Timeout: 12 * time.Second,
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 			},
@@ -169,7 +171,10 @@ func (s *httpService) getJSON(requestPath string, out any) error {
 }
 
 func (s *httpService) get(requestPath string) ([]byte, error) {
-	body, _, _, err := s.getWithMetadata(requestPath)
+	body, _, status, err := s.getWithMetadata(requestPath)
+	if err == nil && (status < 200 || status >= 300) {
+		err = fmt.Errorf("GET %s failed: status %d", requestPath, status)
+	}
 	return body, err
 }
 
@@ -180,13 +185,13 @@ func (s *httpService) getWithMetadata(requestPath string) ([]byte, string, int, 
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 32_000_001))
+	if len(body) > 32_000_000 {
+		return nil, "", 0, errors.New("客户端响应过大")
+	}
 	if err != nil {
 		return nil, "", 0, err
 	}
 	contentType := resp.Header.Get("Content-Type")
-	if resp.StatusCode >= http.StatusBadRequest {
-		return nil, contentType, resp.StatusCode, fmt.Errorf("GET %s failed: status %d", requestPath, resp.StatusCode)
-	}
 	return body, contentType, resp.StatusCode, nil
 }

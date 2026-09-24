@@ -1,97 +1,23 @@
-import { request, requestMock } from '@/utils/request'
+import { request } from '@/utils/request'
 import qs from 'qs'
 
-export function getConfig() {
-    return request.get('/config', {
-        headers: {
-            'Content-Type': 'application/json;charset=UTF-8'
-        }
-    })
+const config = ({ signal, ...params } = {}) => ({ signal, params })
+export const getConfig = () => request.get('/config')
+export const getVersion = () => request.get('/version')
+export const getOnline = () => request.get('/status')
+export const getStatus = () => request.get('/status')
+export const updateConfig = (auto_confirm, auto_pick, auto_ban) => request.post('/config', { auto_confirm, auto_pick: auto_pick || 0, auto_ban: auto_ban || 0 })
+export const getUser = () => request.get('/user')
+export const getPlayer = (puuid, options) => request.get(`/players/${encodeURIComponent(puuid)}`, config(options))
+export const getGameList = (puuid, page = 0, pageSize = 20, options = {}) => request.get(`/history/${encodeURIComponent(puuid)}`, config({ ...options, page, pageSize }))
+export const getGameDetail = (gameId, options) => request.get(`/game/${gameId}`, config(options))
+export const getGameRankHighest = (puuid, options) => request.get(`/rank/highest/${encodeURIComponent(puuid)}`, config(options))
+export function getMulGameRankHighest(puuids, options = {}) {
+  return request.get('/rank/highest', { ...config({ ...options, puuid: [puuids].flat() }), paramsSerializer: params => qs.stringify(params, { arrayFormat: 'repeat' }) })
 }
-export function getVersion() {
-    return request.get('/version', {
-        headers: {
-            'Content-Type': 'application/json;charset=UTF-8'
-        }
-    })
-}
-export function getOnline() {
-    return request.get('/lcu', {
-        headers: {
-            'Content-Type': 'application/json;charset=UTF-8'
-        }
-    })
-}
-export function updateConfig(auto_confirm, auto_pick, auto_ban) {
-    return request({
-        url: '/config',
-        method: 'post',
-        data: { auto_confirm, auto_pick, auto_ban }
-    })
-}
-
-export function getUser() {
-    return request.get('/user', {
-        headers: {
-            'Content-Type': 'application/json;charset=UTF-8'
-        }
-    })
-}
-
-export function getGameList(uuid, page = 0, pageSize = 9) {
-    return request.get(`/history/${uuid}`, {
-        headers: {
-            'Content-Type': 'application/json;charset=UTF-8'
-        },
-        params: {
-            page,
-            pageSize
-        }
-    });
-}
-
-export function getGameDetail(gameId) {
-    return request.get('/game/' + gameId, {
-        headers: {
-            'Content-Type': 'application/json;charset=UTF-8'
-        }
-    })
-}
-export function getGameRankHighest(puuid) {
-    return request.get('rank/highest/' + puuid, {
-        headers: {
-            'Content-Type': 'application/json;charset=UTF-8'
-        }
-    })
-}
-
-export function getMulGameRankHighest(...puuid) {
-    return request.get('rank/highest', {
-        headers: {
-            'Content-Type': 'application/json;charset=UTF-8'
-        },
-        params: {
-            puuid,
-        },
-        paramsSerializer: function (params) {
-            return qs.stringify(params, { arrayFormat: 'repeat' })
-        }
-    })
-}
-
-export function getGameRunning() {
-    return request.get('game/running', {
-        headers: {
-            'Content-Type': 'application/json;charset=UTF-8'
-        }
-    })
-}
-
-
-export function getSkins() {
-    return request.get('skins', {
-        headers: {
-            'Content-Type': 'application/json;charset=UTF-8'
-        },
-    })
-}
+export const getGameRunning = options => request.get('/game/running', config(options))
+export const getSkins = () => request.get('/skins')
+export const getArchivePlayers = options => request.get('/archive/players', config(options))
+export const getArchiveHistory = options => request.get('/archive/history', config(options))
+export const getCacheStats = () => request.get('/cache/stats')
+export const clearCache = kind => request.post('/cache/clear', { kind })

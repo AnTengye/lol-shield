@@ -18,7 +18,7 @@ type ResponseCode struct {
 	customCode int
 }
 
-func (resCode *ResponseCode) MarshalJSON() ([]byte, error) {
+func (resCode ResponseCode) MarshalJSON() ([]byte, error) {
 	return []byte(`"` + resCode.String() + `"`), nil
 }
 

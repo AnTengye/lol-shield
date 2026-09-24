@@ -10,6 +10,12 @@ func AddRouter(r *gin.Engine, p *Shield) {
 	riotReq := r.Group("riot")
 	riotReq.GET("*assets", GetAssets(p))
 	v1 := r.Group("v1")
+	v1.GET("status", GetStatus(p))
+	v1.GET("players/:puuid", GetPlayer(p))
+	v1.GET("archive/players", ArchivePlayers(p))
+	v1.GET("archive/history", ArchiveHistory(p))
+	v1.GET("cache/stats", CacheStats(p))
+	v1.POST("cache/clear", ClearCache(p))
 	// 获取所有配置
 	v1.GET("config", GetConfig(p))
 	// 更新配置
@@ -37,7 +43,9 @@ func AddRouter(r *gin.Engine, p *Shield) {
 		"ws", func(c *gin.Context) {
 			client := ws.ServerWebsocket(c.Writer, c.Request)
 			if client != nil {
+				p.stateMu.Lock()
 				p.webWs = client
+				p.stateMu.Unlock()
 				//go client.read() // 不需要读取web消息
 				syslog.L.Infof("成功连接到Web页面-ID：%s", client.GetUid())
 				p.Notice()

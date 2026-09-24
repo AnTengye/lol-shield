@@ -47,7 +47,7 @@ func WriteList(c *gin.Context, total, data interface{}) {
 }
 
 func WriteRespData(c *gin.Context, data interface{}) {
-	res := Success
+	res := *Success
 	res.Data = data
 	c.JSON(http.StatusOK, res)
 }

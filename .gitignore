@@ -4,6 +4,9 @@
 /.worktrees
 /target
 /src-tauri/target
+/frontend/test-results/
+/frontend/playwright-report/
+/src-tauri/gen/schemas/macOS-schema.json
 lcu-info.exe
 internal/client/web/dist/*
 !internal/client/web/dist/

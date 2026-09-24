@@ -47,7 +47,9 @@ func (p *Shield) initSkin(summonerId int64) {
 			}
 		}
 	}
+	p.stateMu.Lock()
 	p.CurInfo.SkinSync = 1
+	p.stateMu.Unlock()
 	p.Notice()
 }
 func (p *Shield) HandlerLOLLeagueSessionToken(c *tree.Context) error {
@@ -147,20 +149,23 @@ func (p *Shield) HandlerLolChatFriendCounts(c *tree.Context) error {
 }
 
 func (p *Shield) ChampionSelectStart() {
-	if p.CurLobby == nil {
+	p.stateMu.RLock()
+	lobby, epoch := p.CurLobby, p.sessionEpoch
+	p.stateMu.RUnlock()
+	if lobby == nil {
 		// 获取当前游戏进程
 		session, err := p.lcuService.QueryGameFlowSession()
 		if err != nil {
 			return
 		}
 		queueInfo := session.GameData.Queue
-		p.CurLobby = &LobbyInfo{
+		lobby = &LobbyInfo{
 			AllowPeople: len(queueInfo.AllowablePremadeSizes),
 			GameMode:    models.GameMode(queueInfo.GameMode),
 			QueueId:     models.GameQueueID(queueInfo.Id),
 		}
 	}
-	switch p.CurLobby.GameMode {
+	switch lobby.GameMode {
 	case models.GameModeStrawBerry:
 		// 娱乐模式不处理用户信息
 		return
@@ -169,12 +174,12 @@ func (p *Shield) ChampionSelectStart() {
 	for i := 0; i < 3; i++ {
 		// 获取队伍所有用户信息
 		_, idList, _ = getTeamUsers(p.lcuService)
-		if len(idList) != p.CurLobby.AllowPeople {
+		if len(idList) != lobby.AllowPeople {
 			continue
 		}
 		time.Sleep(time.Second)
 	}
-	if len(idList) != p.CurLobby.AllowPeople {
+	if len(idList) != lobby.AllowPeople {
 		return // 未获取到队伍信息
 	}
 	var (
@@ -191,32 +196,44 @@ func (p *Shield) ChampionSelectStart() {
 			syslog.L.Errorf("查询用户信息失败:%v", err)
 			return
 		}
-		if len(historyMap) == p.CurLobby.AllowPeople && len(userNameMap) == p.CurLobby.AllowPeople {
+		if len(historyMap) == lobby.AllowPeople && len(userNameMap) == lobby.AllowPeople {
 			break
 		}
 		time.Sleep(3 * time.Second)
 	}
+	p.stateMu.Lock()
+	defer p.stateMu.Unlock()
+	if epoch != p.sessionEpoch {
+		return
+	}
+	p.CurLobby = lobby
 	p.CurGame = &GameInfo{
 		AllGameHistory: historyMap,
 		UserNameMap:    userNameMap,
 	}
 }
-func (p Shield) AcceptGame() {
+func (p *Shield) AcceptGame() {
 	_ = p.lcuService.AcceptGame()
 }
 func (p *Shield) HandlerInProccessGame() {
+	p.stateMu.RLock()
+	summoner, epoch := p.currSummoner, p.sessionEpoch
+	p.stateMu.RUnlock()
+	if summoner == nil {
+		return
+	}
 	// 获取当前游戏进程
 	session, err := p.lcuService.QueryGameFlowSession()
 	if err != nil {
 		return
 	}
 	queueInfo := session.GameData.Queue
-	p.CurLobby = &LobbyInfo{
+	lobby := &LobbyInfo{
 		AllowPeople: len(queueInfo.AllowablePremadeSizes),
 		GameMode:    models.GameMode(queueInfo.GameMode),
 		QueueId:     models.GameQueueID(queueInfo.Id),
 	}
-	switch p.CurLobby.GameMode {
+	switch lobby.GameMode {
 	case models.GameModeStrawBerry:
 		// 娱乐模式不处理用户信息
 		return
@@ -224,41 +241,32 @@ func (p *Shield) HandlerInProccessGame() {
 	if session.Phase != models.GameFlowInProgress {
 		return
 	}
-	p.CurInfo.GameStatus = GSStarted
-	if p.currSummoner == nil {
-		return
-	}
 	selfID := lcu.UserId{
-		SummonerId: p.currSummoner.SummonerId,
-		Puuid:      p.currSummoner.Puuid,
+		SummonerId: summoner.SummonerId,
+		Puuid:      summoner.Puuid,
 	}
 	selfTeamUsers, enemyTeamUsers, groups, skinMap := getAllUsersFromSession(selfID, session)
 	// 查询对面的信息
 	historyMap, userNameMap, err := getGameHistoryByUserList(p.lcuService, enemyTeamUsers.UserList)
 	if err != nil {
 		syslog.L.Errorf("查询用户信息失败:%v", err)
+	}
+	selfHistoryMap, selfUserNameMap, selfErr := getGameHistoryByUserList(p.lcuService, selfTeamUsers.UserList)
+	if selfErr != nil {
+		syslog.L.Errorf("查询用户信息失败:%v", selfErr)
+	}
+	maps.Copy(selfHistoryMap, historyMap)
+	maps.Copy(selfUserNameMap, userNameMap)
+	game := &GameInfo{SelfTeamInfo: selfTeamUsers, EnemyTeamInfo: enemyTeamUsers, PreTeam: groups, SkinMap: skinMap, QueueId: lobby.QueueId, QueueName: queueInfo.Name, AllGameHistory: selfHistoryMap, UserNameMap: selfUserNameMap,
+		Partial: err != nil || selfErr != nil || len(selfUserNameMap) < len(selfTeamUsers.UserList)+len(enemyTeamUsers.UserList)}
+	p.stateMu.Lock()
+	if epoch != p.sessionEpoch {
+		p.stateMu.Unlock()
 		return
 	}
-	if p.CurGame == nil || len(p.CurGame.AllGameHistory) == 0 {
-		// 查询自己队伍的信息
-		selfHistoryMap, selfUserNameMap, selfErr := getGameHistoryByUserList(p.lcuService, selfTeamUsers.UserList)
-		if selfErr != nil {
-			syslog.L.Errorf("查询用户信息失败:%v", selfErr)
-			return
-		}
-		p.CurGame = &GameInfo{
-			AllGameHistory: selfHistoryMap,
-			UserNameMap:    selfUserNameMap,
-		}
-	}
-	p.CurGame.SelfTeamInfo = selfTeamUsers
-	p.CurGame.EnemyTeamInfo = enemyTeamUsers
-	p.CurGame.PreTeam = groups
-	p.CurGame.SkinMap = skinMap
-	p.CurGame.QueueId = p.CurLobby.QueueId
-	p.CurGame.QueueName = queueInfo.Name
-	maps.Copy(p.CurGame.AllGameHistory, historyMap)
-	maps.Copy(p.CurGame.UserNameMap, userNameMap)
+	p.CurLobby, p.CurGame = lobby, game
+	p.CurInfo.GameStatus = GSStarted
+	p.stateMu.Unlock()
 	p.Notice()
 }
 
@@ -273,6 +281,8 @@ func (p *Shield) HandlerLobbyChange(c *tree.Context) error {
 		syslog.L.Errorf("unmarshal lobby data error:%v", err)
 		return err
 	}
+	p.stateMu.Lock()
+	defer p.stateMu.Unlock()
 	p.CurLobby = &LobbyInfo{
 		AllowPeople: len(data.GameConfig.AllowablePremadeSizes),
 		GameMode:    models.GameMode(data.GameConfig.GameMode),

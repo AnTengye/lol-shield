@@ -1,3 +1,5 @@
+//go:build windows
+
 package admin
 
 import (
@@ -25,6 +27,13 @@ func TestBuildElevatedArgsDoesNotDuplicateSidecarFlag(t *testing.T) {
 
 	if count := strings.Count(args, "--tauri-sidecar"); count != 1 {
 		t.Fatalf("expected sidecar flag once, got %d in %q", count, args)
+	}
+}
+
+func TestBuildElevatedArgsKeepsUserDataDirectory(t *testing.T) {
+	args := buildElevatedArgs([]string{"--data-dir", `C:\Users\test user\AppData\Local\Shield`}, true)
+	if !strings.Contains(args, `"C:\Users\test user\AppData\Local\Shield"`) || !strings.Contains(args, "--data-dir") {
+		t.Fatalf("用户数据目录丢失: %s", args)
 	}
 }
 
