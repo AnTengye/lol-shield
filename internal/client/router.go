@@ -38,6 +38,8 @@ func AddRouter(r *gin.Engine, p *Shield) {
 	v1.GET("game/running", GetGameRunning(p))
 	// 获取英雄皮肤信息
 	v1.GET("skins", GetSkinInfo(p))
+	// 请求本地服务优雅退出（供桌面壳在更新安装前释放文件占用）
+	v1.POST("shutdown", Shutdown(p))
 
 	r.GET(
 		"ws", func(c *gin.Context) {

@@ -32,7 +32,8 @@
     "externalBin": ["../bin/lol-shield"],
     "windows": {
       "nsis": {
-        "installMode": "perMachine"
+        "installMode": "perMachine",
+        "installerHooks": "./nsis-hooks.nsh"
       }
     }
   },

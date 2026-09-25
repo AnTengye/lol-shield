@@ -155,6 +155,25 @@ describe('版本更新', () => {
     await store.dispatch('ui/checkUpdate', { silent: true })
     await store.dispatch('ui/installUpdate')
     expect(relaunch).toHaveBeenCalled()
+    // 重启前先把本地服务带回来，避免 relaunch 失败后界面长期离线
+    expect(invoke).toHaveBeenCalledWith('resume_sidecar')
+    expect(
+      invoke.mock.invocationCallOrder.at(-1),
+    ).toBeLessThan(relaunch.mock.invocationCallOrder[0])
+  })
+
+  it('安装器启动失败时恢复本地服务并保留错误', async () => {
+    useDesktop()
+    const update = releaseUpdate()
+    update.install.mockRejectedValue(new Error('installer launch failed'))
+    check.mockResolvedValue(update)
+    const store = newStore()
+    await store.dispatch('ui/checkUpdate', { silent: true })
+    expect(await store.dispatch('ui/installUpdate')).toBe(false)
+    expect(invoke).toHaveBeenCalledWith('prepare_update')
+    expect(invoke).toHaveBeenCalledWith('resume_sidecar')
+    expect(store.state.ui.updateStatus).toBe('failed')
+    expect(store.state.ui.updateError).toBe('installer launch failed')
   })
 
   it('安装失败时恢复本地服务并保留错误', async () => {

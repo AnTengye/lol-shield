@@ -204,7 +204,9 @@ func (p *Shield) notifyQuit() error {
 	g.Go(
 		func() error {
 			err := p.httpSrv.ListenAndServe()
-			if err != nil || !errors.Is(err, http.ErrServerClosed) {
+			// Shutdown 触发的 ErrServerClosed 是正常退出路径，不能当作错误上抛，
+			// 否则 /v1/shutdown 优雅退出会被 main 当作致命错误以非零码结束。
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
 				return err
 			}
 			return nil
@@ -226,6 +228,10 @@ func (p *Shield) notifyQuit() error {
 				select {
 				case <-p.ctx.Done():
 					return p.ctx.Err()
+				case <-c.Done():
+					// 已有 goroutine 失败（如端口被旧实例占用导致监听失败），
+					// 不再等待退出信号，否则 g.Wait 会永久挂起、进程无法退出。
+					return nil
 				case <-interrupt:
 					_ = p.Stop()
 				}

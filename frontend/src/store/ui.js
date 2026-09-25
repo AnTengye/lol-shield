@@ -224,14 +224,23 @@ export default {
           updateStatus: 'installing',
           updateDetail: '正在安装更新，应用即将重启',
         })
-        // 安装程序要替换 sidecar 可执行文件，先停掉本地服务再交给更新插件。
+        // 安装程序要替换安装目录里的 sidecar 可执行文件；sidecar 以管理员权限
+        // 独立运行，prepare_update 会请求其自行退出并等待文件占用释放。
         await invoke('prepare_update').catch(() => {})
-        await update.install()
+        try {
+          await update.install()
+        } catch (error) {
+          // 安装器未接管退出（启动失败或用户取消 UAC）：恢复本地服务后再上报。
+          await invoke('resume_sidecar').catch(() => {})
+          throw error
+        }
+        // 走到这里说明进程未被安装器接管（非 Windows）：重启前先恢复本地服务。
         if (
           !isWindowsAgent(
             typeof navigator === 'undefined' ? '' : navigator.userAgent,
           )
         ) {
+          await invoke('resume_sidecar').catch(() => {})
           const { relaunch } = await import('@tauri-apps/plugin-process')
           await relaunch()
         }

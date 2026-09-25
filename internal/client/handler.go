@@ -263,3 +263,16 @@ func GetSkinInfo(p *Shield) gin.HandlerFunc {
 		resp.WriteRespData(ctx, SkinInfo)
 	}
 }
+
+// Shutdown 请求本地服务优雅退出。
+//
+// sidecar 在 Windows 上会以管理员权限独立运行（见 internal/pkg/windows/admin），
+// 桌面壳无法直接结束它，只能通过本端点请求其自行退出，
+// 以释放可执行文件占用，供覆盖安装更新。
+func Shutdown(p *Shield) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		resp.WriteRespData(ctx, gin.H{"shutting_down": true})
+		// 异步退出，避免 httpSrv.Shutdown 等待本响应时死等超时
+		go p.Stop()
+	}
+}
