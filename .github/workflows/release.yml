@@ -88,6 +88,16 @@ jobs:
         shell: pwsh
         run: ./scripts/build-tauri-sidecar.ps1
 
+      - name: Verify Windows startup lifecycle
+        shell: pwsh
+        run: |
+          go test ./...
+          if ($LASTEXITCODE -ne 0) { throw "Go 测试失败" }
+          cargo test --manifest-path src-tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { throw "Rust 测试失败" }
+          pnpm --dir frontend test
+          if ($LASTEXITCODE -ne 0) { throw "前端测试失败" }
+
       - name: Build Tauri NSIS bundle
         run: pnpm --dir frontend tauri:build
 

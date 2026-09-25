@@ -3,9 +3,48 @@
 package admin
 
 import (
+	"io"
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
+	"time"
 )
+
+func TestParentProcessHelper(t *testing.T) {
+	if os.Getenv("SHIELD_PARENT_TEST") != "1" {
+		return
+	}
+	_, _ = io.Copy(io.Discard, os.Stdin)
+	os.Exit(0)
+}
+
+func TestWatchParentStopsWhenDesktopExits(t *testing.T) {
+	command := exec.Command(os.Args[0], "-test.run=^TestParentProcessHelper$")
+	command.Env = append(os.Environ(), "SHIELD_PARENT_TEST=1")
+	input, err := command.StdinPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := command.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = command.Process.Kill(); _ = input.Close() })
+	done, stopped := make(chan struct{}), make(chan struct{})
+	defer close(done)
+	if err := WatchParent(uint32(command.Process.Pid), done, func() { close(stopped) }); err != nil {
+		t.Fatal(err)
+	}
+	_ = input.Close()
+	if err := command.Wait(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-stopped:
+	case <-time.After(3 * time.Second):
+		t.Fatal("桌面进程退出后后台未收到停止通知")
+	}
+}
 
 func TestBuildElevatedArgsAddsSidecarFlagWhenRequested(t *testing.T) {
 	t.Parallel()

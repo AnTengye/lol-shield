@@ -48,7 +48,11 @@ func GinRecovery(logger *zap.SugaredLogger, stack bool) gin.HandlerFunc {
 					}
 				}
 
-				httpRequest, _ := httputil.DumpRequest(c.Request, false)
+				request := c.Request.Clone(c.Request.Context())
+				for _, header := range []string{"Authorization", "Cookie", "X-Shield-Session", "Token"} {
+					request.Header.Del(header)
+				}
+				httpRequest, _ := httputil.DumpRequest(request, false)
 				if brokenPipe {
 					logger.Error(c.Request.URL.Path,
 						zap.Any("error", err),

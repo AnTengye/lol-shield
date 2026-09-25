@@ -44,7 +44,7 @@
                   />
                   <div>
                     <strong>{{ user.gameName || '未连接账号' }}</strong
-                    ><small>{{ user.tagLine ? '#' + user.tagLine : '本地记录随时可用' }}</small>
+                    ><small>{{ user.tagLine ? '#' + user.tagLine : '等待连接英雄联盟客户端' }}</small>
                   </div>
                 </div>
                 <p>
@@ -73,7 +73,7 @@
               <div class="nav-label">
                 <strong>{{ user.gameName || '未连接账号' }}</strong
                 ><small>{{
-                  user.tagLine ? '#' + user.tagLine : '本地记录随时可用'
+                  user.tagLine ? '#' + user.tagLine : '等待连接英雄联盟客户端'
                 }}</small>
               </div>
             </div>
@@ -85,12 +85,28 @@
           <span class="muted">{{ route.meta.title || 'LOL Shield' }}</span>
           <div class="connection-status">
             <span :class="backendOnline ? 'status-good' : 'status-waiting'"
-              >● {{ backendOnline ? '本地服务正常' : '本地服务连接中' }}</span
+              >● {{ store.getters['ui/backendLabel'] }}</span
             ><span :class="online ? 'status-good' : 'muted'">{{
               online ? '客户端已连接' : '客户端未连接'
             }}</span>
           </div>
         </header>
+        <a-alert
+          v-if="sidecar?.phase === 'failed' || store.state.ui.sidecarError"
+          class="backend-notice"
+          type="error"
+          show-icon
+          message="本地服务启动失败，在线功能暂不可用"
+        >
+          <template #description>
+            <p>{{ store.state.ui.sidecarError || sidecar?.message }}</p>
+            <p v-if="sidecar?.logPath" class="muted">日志目录：{{ sidecar.logPath }}</p>
+            <a-space>
+              <a-button size="small" :loading="store.state.ui.sidecarRetrying" :disabled="store.getters['ui/updateBusy']" @click="store.dispatch('ui/retrySidecar')">重新启动服务</a-button>
+              <a-button size="small" @click="openStartupLogs">打开日志目录</a-button>
+            </a-space>
+          </template>
+        </a-alert>
         <div v-if="gameNotice && route.path !== '/running'" class="game-notice">
           <span>对局已开始，可查看双方召唤师信息。</span
           ><a-button
@@ -116,6 +132,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Modal, theme } from 'ant-design-vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { invoke } from '@tauri-apps/api/core'
 import zhCN from 'ant-design-vue/es/locale/zh_CN'
 import {
   ThunderboltOutlined,
@@ -150,6 +167,14 @@ let unlistenClose,
 const online = computed(() => store.getters['ws/getStatus'] === 1)
 const started = computed(() => store.getters['ws/getGameStatus'] === 2)
 const backendOnline = computed(() => store.state.ui.backendOnline)
+const sidecar = computed(() => store.state.ui.sidecar)
+async function openStartupLogs() {
+  try {
+    await invoke('open_startup_logs')
+  } catch (error) {
+    modal.error({ title: '无法打开日志目录', content: String(error) })
+  }
+}
 const navigation = [
   { path: '/running', label: '实时对局', icon: ThunderboltOutlined },
   { path: '/rank', label: '战绩中心', icon: HistoryOutlined },
@@ -175,8 +200,17 @@ async function pollStatus() {
   if (polling) return
   polling = true
   try {
+    if (window.__TAURI_INTERNALS__) {
+      await store.dispatch('ui/refreshSidecar')
+      if (stopped) return
+      if (store.state.ui.sidecar?.phase !== 'ready') {
+        store.commit('ws/reset')
+        return
+      }
+    }
+    const revision = store.state.ui.sidecar?.revision
     const response = await getStatus()
-    if (stopped) return
+    if (stopped || revision !== store.state.ui.sidecar?.revision) return
     store.commit('ui/backendOnline', true)
     store.commit('ws/setWsRes', response.data)
   } catch {
@@ -263,3 +297,7 @@ onBeforeUnmount(() => {
   destroyWebSocket()
 })
 </script>
+<style scoped>
+.backend-notice { margin: 12px 24px 0; }
+.backend-notice p { overflow-wrap: anywhere; margin: 0 0 8px; }
+</style>

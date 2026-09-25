@@ -1,7 +1,9 @@
 package syslog
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/AnTengye/lol-shield/configs"
@@ -13,10 +15,24 @@ import (
 
 var L *zap.SugaredLogger
 
-func Init() {
+func Init() error {
+	level, err := zapcore.ParseLevel(viper.GetString(configs.LogLevel))
+	if err != nil {
+		return fmt.Errorf("日志级别无效: %w", err)
+	}
+	dir := viper.GetString(configs.LogFilepath)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return fmt.Errorf("创建日志目录失败: %w", err)
+	}
+	filename := filepath.Join(dir, time.Now().Format("20060102")+".log")
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return fmt.Errorf("打开日志失败: %w", err)
+	}
+	_ = file.Close()
 	lumberJackLogger := &lumberjack.Logger{
 		// 日志文件以日期命名
-		Filename:   viper.GetString(configs.LogFilepath) + "/" + time.Now().Format("20060102") + ".log",
+		Filename:   filename,
 		MaxSize:    viper.GetInt(configs.LogSize),
 		MaxBackups: viper.GetInt(configs.LogBackups),
 		MaxAge:     viper.GetInt(configs.LogAge),
@@ -29,10 +45,6 @@ func Init() {
 	config := zap.NewProductionEncoderConfig()
 	config.EncodeTime = zapcore.ISO8601TimeEncoder
 	config.EncodeDuration = zapcore.StringDurationEncoder
-	level, err := zapcore.ParseLevel(viper.GetString(configs.LogLevel))
-	if err != nil {
-		panic("level error")
-	}
 	core := zapcore.NewCore(
 		zapcore.NewJSONEncoder(config),
 		syncer,
@@ -42,5 +54,6 @@ func Init() {
 	if viper.GetBool(configs.Dev) {
 		options = append(options, zap.AddCaller(), zap.AddCallerSkip(1))
 	}
-	L = zap.New(core, options...).Sugar()
+	L = zap.New(core, options...).With(zap.Int("pid", os.Getpid())).Sugar()
+	return nil
 }

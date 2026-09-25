@@ -10,6 +10,7 @@ func AddRouter(r *gin.Engine, p *Shield) {
 	riotReq := r.Group("riot")
 	riotReq.GET("*assets", GetAssets(p))
 	v1 := r.Group("v1")
+	v1.GET("health", p.desktopHealth)
 	v1.GET("status", GetStatus(p))
 	v1.GET("players/:puuid", GetPlayer(p))
 	v1.GET("archive/players", ArchivePlayers(p))

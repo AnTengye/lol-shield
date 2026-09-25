@@ -69,6 +69,38 @@ func containsArg(args []string, target string) bool {
 	return false
 }
 
+// RequireElevated 仅校验权限；受桌面壳管理的进程不得自行派生替身。
+func RequireElevated() error {
+	if !IsAdmin() {
+		return fmt.Errorf("本地服务未获得管理员权限，请在桌面窗口中重新授权启动")
+	}
+	return nil
+}
+
+// WatchParent 持有父进程的真实句柄，桌面壳异常退出时也能结束提权服务。
+func WatchParent(pid uint32, done <-chan struct{}, stop func()) error {
+	handle, err := windows.OpenProcess(windows.SYNCHRONIZE, false, pid)
+	if err != nil {
+		return err
+	}
+	go func() {
+		defer windows.CloseHandle(handle)
+		for {
+			select {
+			case <-done:
+				return
+			default:
+			}
+			status, err := windows.WaitForSingleObject(handle, 500)
+			if err != nil || status == windows.WAIT_OBJECT_0 {
+				stop()
+				return
+			}
+		}
+	}()
+	return nil
+}
+
 func IsAdmin() bool {
 	y, err := isAdminWithProcessToken()
 	if err != nil {

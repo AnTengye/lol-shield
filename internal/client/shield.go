@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"crypto/subtle"
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
@@ -65,6 +66,7 @@ type (
 		lcuService     lcuapi.Service
 		historyService *history.Service
 		cacheError     string
+		desktopSession string
 	}
 	wsMsg struct {
 		Data      interface{} `json:"data"`
@@ -150,6 +152,29 @@ func (p *Shield) ConfigureHistory(cache *historycache.Store, source string, cach
 	}
 }
 
+func (p *Shield) ConfigureDesktop(session string) { p.desktopSession = session }
+
+func (p *Shield) authorizeDesktop(ctx *gin.Context) bool {
+	if p.desktopSession == "" {
+		return true
+	}
+	if subtle.ConstantTimeCompare([]byte(ctx.GetHeader("X-Shield-Session")), []byte(p.desktopSession)) != 1 {
+		ctx.AbortWithStatus(http.StatusForbidden)
+		return false
+	}
+	return true
+}
+
+func (p *Shield) desktopHealth(ctx *gin.Context) {
+	if p.desktopSession == "" {
+		ctx.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	if p.authorizeDesktop(ctx) {
+		ctx.JSON(http.StatusOK, gin.H{"service": "lol-shield", "protocol": 1, "pid": os.Getpid()})
+	}
+}
+
 func NewServer(addr string, p *Shield) *http.Server {
 	engine := gin.New()
 	//engine.Use(gin.Recovery())
@@ -199,6 +224,7 @@ func (p *Shield) notifyQuit() error {
 	p.httpSrv = srv
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
+	defer signal.Stop(interrupt)
 	g, c := errgroup.WithContext(p.ctx)
 	// http
 	g.Go(

@@ -1,9 +1,11 @@
 package client
 
 import (
+	"encoding/json"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -46,6 +48,59 @@ func TestNewShieldWithMockModeStillInitializesLCUService(t *testing.T) {
 	}
 }
 
+func TestDesktopHealthAndShutdownRequireOwningSession(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	shield := NewShield()
+	shield.ConfigureDesktop("owner-session")
+	defer shield.Stop()
+	engine := gin.New()
+	AddRouter(engine, shield)
+	for _, route := range []struct{ method, path string }{{http.MethodGet, "/v1/health"}, {http.MethodPost, "/v1/shutdown"}} {
+		for _, session := range []string{"", "old-session"} {
+			req := httptest.NewRequest(route.method, route.path, nil)
+			req.Header.Set("X-Shield-Session", session)
+			response := httptest.NewRecorder()
+			engine.ServeHTTP(response, req)
+			if response.Code != http.StatusForbidden {
+				t.Fatalf("其他会话不应访问 %s: %d", route.path, response.Code)
+			}
+			if shield.ctx.Err() != nil {
+				t.Fatal("其他会话关闭了后台")
+			}
+		}
+	}
+	req := httptest.NewRequest(http.MethodGet, "/v1/health", nil)
+	req.Header.Set("X-Shield-Session", "owner-session")
+	response := httptest.NewRecorder()
+	engine.ServeHTTP(response, req)
+	var health struct {
+		Service  string
+		Protocol int
+		PID      int
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &health); err != nil {
+		t.Fatal(err)
+	}
+	if response.Code != http.StatusOK || health.Service != "lol-shield" || health.Protocol != 1 || health.PID != os.Getpid() {
+		t.Fatalf("身份握手失败: %s", response.Body.String())
+	}
+	if strings.Contains(response.Body.String(), "owner-session") {
+		t.Fatal("健康检查不能公开会话令牌")
+	}
+	req = httptest.NewRequest(http.MethodPost, "/v1/shutdown", nil)
+	req.Header.Set("X-Shield-Session", "owner-session")
+	response = httptest.NewRecorder()
+	engine.ServeHTTP(response, req)
+	if response.Code != http.StatusOK {
+		t.Fatal("拥有者无法关闭后台")
+	}
+	select {
+	case <-shield.ctx.Done():
+	case <-time.After(time.Second):
+		t.Fatal("关闭请求未生效")
+	}
+}
+
 func TestShutdownEndpointReturnsAck(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	syslog.L = zap.NewNop().Sugar()
@@ -85,15 +140,11 @@ func TestShutdownEndpointStopsServerGracefully(t *testing.T) {
 		viper.Set(configs.MockLCUEnabled, false)
 	})
 
-	// 后台监控轮询会访问 LCU 服务，用一个空服务承接即可，不影响退出路径
-	mockLcu := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer mockLcu.Close()
-
-	shield := NewShieldWithLCU(lcuapi.NewHTTPService(mockLcu.URL))
+	// 只启动 HTTP 生命周期；完整进程的启动与退出由 cmd/shield 回归测试覆盖。
+	shield := NewShield()
+	defer shield.Stop()
 	done := make(chan error, 1)
-	go func() { done <- shield.Run() }()
+	go func() { done <- shield.notifyQuit() }()
 
 	var res *http.Response
 	for i := 0; i < 50; i++ {
@@ -148,14 +199,10 @@ func TestNotifyQuitExitsWhenPortOccupied(t *testing.T) {
 		viper.Set(configs.MockLCUEnabled, false)
 	})
 
-	mockLcu := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer mockLcu.Close()
-
-	shield := NewShieldWithLCU(lcuapi.NewHTTPService(mockLcu.URL))
+	shield := NewShield()
+	defer shield.Stop()
 	done := make(chan error, 1)
-	go func() { done <- shield.Run() }()
+	go func() { done <- shield.notifyQuit() }()
 
 	select {
 	case err := <-done:

@@ -29,7 +29,7 @@ export async function createWebSocket(store) {
   const active = () => current === generation
   const transport = (online) => {
     if (!active()) return
-    store.commit('ui/backendOnline', online)
+    if (!store.state.ui.sidecar) store.commit('ui/backendOnline', online)
     if (!online) store.commit('ws/reset')
   }
   if (window.__TAURI_INTERNALS__) {
@@ -37,10 +37,17 @@ export async function createWebSocket(store) {
       [
         'shield-status',
         (event) => {
-          if (active()) store.commit('ws/setWsRes', event.payload ?? {})
+          const sidecar = store.state.ui.sidecar
+          if (!active() || sidecar?.phase !== 'ready' || event.payload?.revision !== sidecar.revision) return
+          store.commit('ws/setWsRes', event.payload.status ?? {})
         },
       ],
       ['shield-transport', (event) => transport(event.payload === true)],
+      ['shield-sidecar', (event) => {
+        if (!active()) return
+        store.commit('ui/sidecarState', event.payload)
+        if (store.state.ui.sidecar?.phase !== 'ready') store.commit('ws/reset')
+      }],
     ]) {
       try {
         const unlisten = await listen(event, callback)

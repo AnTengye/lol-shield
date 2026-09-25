@@ -55,6 +55,9 @@ export default {
     settingsDirty: false,
     cacheGeneration: 0,
     backendOnline: false,
+    sidecar: null,
+    sidecarRetrying: false,
+    sidecarError: '',
     snapshots: {},
     appVersion: '',
     update: null,
@@ -66,6 +69,14 @@ export default {
     dismissedUpdate: loadDismissed(),
   }),
   getters: {
+    backendLabel: (state) => {
+      if (!state.sidecar) return state.backendOnline ? '本地服务正常' : '本地服务连接中'
+      return {
+        starting: '本地服务启动中', authorizing: '等待管理员授权',
+        ready: '本地服务正常', failed: '本地服务启动失败',
+        stopping: '本地服务停止中', updating: '正在更新',
+      }[state.sidecar.phase] || '本地服务状态未知'
+    },
     updateBusy: (state) =>
       state.updateStatus === 'downloading' ||
       state.updateStatus === 'installing',
@@ -95,6 +106,14 @@ export default {
     backendOnline(state, value) {
       state.backendOnline = value
     },
+    sidecarState(state, value) {
+      if (!value || (state.sidecar && value.revision < state.sidecar.revision)) return
+      state.sidecar = value
+      state.backendOnline = value.phase === 'ready'
+      state.sidecarError = ''
+    },
+    sidecarRetrying(state, value) { state.sidecarRetrying = value },
+    sidecarError(state, value) { state.sidecarError = value },
     cacheCleared(state) {
       state.snapshots = {}
       state.cacheGeneration++
@@ -117,6 +136,32 @@ export default {
     },
   },
   actions: {
+    async refreshSidecar({ commit }) {
+      if (!isDesktopShell(desktopWindow())) return
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        commit('sidecarState', await invoke('sidecar_status'))
+      } catch (error) {
+        commit('sidecarError', `无法读取本地服务状态：${String(error)}`)
+      }
+    },
+    async retrySidecar({ state, commit, dispatch }) {
+      if (state.sidecarRetrying || state.updateStatus === 'installing' ||
+          ['starting', 'authorizing', 'ready', 'stopping', 'updating'].includes(state.sidecar?.phase)) return false
+      commit('sidecarRetrying', true)
+      commit('sidecarError', '')
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        await invoke('resume_sidecar')
+        await dispatch('refreshSidecar')
+        return true
+      } catch (error) {
+        commit('sidecarError', `重新启动失败：${String(error)}`)
+        return false
+      } finally {
+        commit('sidecarRetrying', false)
+      }
+    },
     async loadAppVersion({ state, commit }) {
       if (state.appVersion || !isDesktopShell(desktopWindow())) {
         return state.appVersion
@@ -192,6 +237,7 @@ export default {
       }
       let received = 0
       let total = 0
+      let stoppingBackend = false
       commit('updateState', {
         updateStatus: 'downloading',
         updateProgress: 0,
@@ -226,14 +272,9 @@ export default {
         })
         // 安装程序要替换安装目录里的 sidecar 可执行文件；sidecar 以管理员权限
         // 独立运行，prepare_update 会请求其自行退出并等待文件占用释放。
-        await invoke('prepare_update').catch(() => {})
-        try {
-          await update.install()
-        } catch (error) {
-          // 安装器未接管退出（启动失败或用户取消 UAC）：恢复本地服务后再上报。
-          await invoke('resume_sidecar').catch(() => {})
-          throw error
-        }
+        stoppingBackend = true
+        await invoke('prepare_update')
+        await update.install()
         // 走到这里说明进程未被安装器接管（非 Windows）：重启前先恢复本地服务。
         if (
           !isWindowsAgent(
@@ -252,8 +293,10 @@ export default {
           updateDetail: '',
           updateError: describeUpdateError(error),
         })
-        const { invoke } = await import('@tauri-apps/api/core')
-        await invoke('resume_sidecar').catch(() => {})
+        if (stoppingBackend) {
+          const { invoke } = await import('@tauri-apps/api/core')
+          await invoke('resume_sidecar').catch(() => {})
+        }
         return false
       }
     },

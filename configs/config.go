@@ -1,6 +1,11 @@
 package configs
 
-import "github.com/spf13/viper"
+import (
+	"fmt"
+	"os"
+
+	"github.com/spf13/viper"
+)
 
 const (
 	Version = "v1.0.0"
@@ -26,7 +31,7 @@ const (
 	// GameAutoConfirm = "game.auto_confirm"
 )
 
-func Init(configPath string) {
+func Init(configPath string) error {
 	viper.SetDefault(ShowVersion, true)
 	viper.SetDefault(Dev, false)
 	viper.SetDefault(LogFilepath, "./log")
@@ -44,11 +49,14 @@ func Init(configPath string) {
 	viper.SetDefault(MockLCUBaseURL, "http://127.0.0.1:19365")
 	viper.SetDefault(MockLCUScenario, "default")
 	viper.SetConfigFile(configPath)
-	err := viper.ReadInConfig()
-	if err != nil {
-		err := viper.WriteConfig()
-		if err != nil {
-			panic(err)
+	if err := viper.ReadInConfig(); err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("读取配置 %s 失败: %w", configPath, err)
+		}
+		// 只创建缺失的配置，解析失败或权限错误不能覆盖用户原文件。
+		if err := viper.SafeWriteConfigAs(configPath); err != nil {
+			return fmt.Errorf("创建配置 %s 失败: %w", configPath, err)
 		}
 	}
+	return nil
 }

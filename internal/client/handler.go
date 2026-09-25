@@ -271,6 +271,9 @@ func GetSkinInfo(p *Shield) gin.HandlerFunc {
 // 以释放可执行文件占用，供覆盖安装更新。
 func Shutdown(p *Shield) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
+		if !p.authorizeDesktop(ctx) {
+			return
+		}
 		resp.WriteRespData(ctx, gin.H{"shutting_down": true})
 		// 异步退出，避免 httpSrv.Shutdown 等待本响应时死等超时
 		go p.Stop()
