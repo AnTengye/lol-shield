@@ -2,9 +2,7 @@
   <div class="page settings-page">
     <header class="page-heading">
       <div>
-        <span class="eyebrow">PREFERENCES</span>
         <h1>设置</h1>
-        <p class="muted">让工具适应你的习惯。</p>
       </div>
     </header>
     <contextHolder />

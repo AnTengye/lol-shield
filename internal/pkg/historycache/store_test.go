@@ -264,7 +264,7 @@ func TestFullQuotaStress(t *testing.T) {
 }
 
 func TestAssetPathAllowlist(t *testing.T) {
-	for _, path := range []string{"/v1/champion-icons/1.png", "/ASSETS/Items/Icons2D/1001.png", "/DATA/Spells/Icons2D/flash.png"} {
+	for _, path := range []string{"/v1/champion-icons/1.png", "/ASSETS/Items/Icons2D/1001.png", "/DATA/Spells/Icons2D/flash.png", "/ASSETS/UX/Cherry/Augments/Icons/BuffBuddies_small.png", "/ASSETS/UX/Kiwi/Augments/Icons/UpgradeCollector_small.png"} {
 		if !SafeAssetPath(path) {
 			t.Fatal(path)
 		}

@@ -497,7 +497,7 @@ func SafeAssetPath(path string) bool {
 		return false
 	}
 	lower := strings.ToLower(path)
-	for _, prefix := range []string{"/v1/champion-icons/", "/v1/profile-icons/", "/assets/items/icons2d/", "/data/spells/icons2d/"} {
+	for _, prefix := range []string{"/v1/champion-icons/", "/v1/profile-icons/", "/assets/items/icons2d/", "/data/spells/icons2d/", "/assets/ux/"} {
 		if strings.HasPrefix(lower, prefix) {
 			return strings.HasSuffix(lower, ".png") || strings.HasSuffix(lower, ".jpg") || strings.HasSuffix(lower, ".jpeg") || strings.HasSuffix(lower, ".webp")
 		}

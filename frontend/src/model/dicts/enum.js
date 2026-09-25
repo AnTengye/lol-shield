@@ -1,7 +1,9 @@
 import gameItem from './items.generated.js'
+import augment from './augments.generated.js'
 
 // gameItem 字典由 frontend/scripts/generate-item-dict.mjs 生成，
-// 游戏版本更新新增或改名装备后运行 `npm run generate:items` 重新生成并提交。
+// augment 字典由 frontend/scripts/generate-augment-dict.mjs 生成，
+// 游戏版本更新新增或改名装备/强化后运行对应 generate 命令重新生成并提交。
 export default {
     dictAttr: {
         rank: [
@@ -74,5 +76,6 @@ export default {
             '4294967295': '1102_Smite.png'
         },
         gameItem,
+        augment,
     },
 }

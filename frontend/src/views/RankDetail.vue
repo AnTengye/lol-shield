@@ -20,36 +20,37 @@
     <template v-else-if="data">
       <header class="detail-header">
         <div>
-          <span class="eyebrow">MATCH REPORT</span>
           <h2>
             <span v-if="focusedTeam" :class="resultClass(focusedTeam.win)"
               >{{ focusedTeam.result }} · </span
             >{{ queueName }}
           </h2>
-          <p class="muted">
-            {{ date(data.gameCreation) }} · {{ duration(data.gameDuration) }} ·
-            {{ data.gameVersion || '版本未知' }}
+          <p class="detail-meta">
+            <span class="muted"
+              >{{ date(data.gameCreation) }} ·
+              {{ duration(data.gameDuration) }} ·
+              {{ data.gameVersion || '版本未知' }}</span
+            ><span
+              class="cache-label"
+              :class="{ warning: !meta?.cached || meta?.refreshFailed }"
+              >{{ sourceLabel
+              }}<template v-if="meta?.fetchedAt"
+                >（{{ date(meta.fetchedAt) }}）</template
+              ></span
+            >
           </p>
         </div>
-        <a-button
-          v-if="!offline"
-          size="small"
-          :loading="loading"
-          @click="refresh"
-          >重新获取</a-button
-        >
+        <div class="detail-actions">
+          <span class="detail-legend muted">金色 = 全场最高</span
+          ><a-button
+            v-if="!offline"
+            size="small"
+            :loading="loading"
+            @click="refresh"
+            >重新获取</a-button
+          >
+        </div>
       </header>
-      <p
-        class="cache-label"
-        :class="{ warning: !meta?.cached || meta?.refreshFailed }"
-      >
-        {{ sourceLabel
-        }}<span v-if="meta?.fetchedAt"> · {{ date(meta.fetchedAt) }}</span>
-      </p>
-      <div class="section-toolbar">
-        <span>双方记分板</span
-        ><span class="muted">高亮数值为全场最高</span>
-      </div>
       <section v-for="team in teams" :key="team.id" class="scoreboard">
         <header class="team-summary">
           <strong :class="resultClass(team.win)">{{ team.result }}</strong
@@ -64,10 +65,16 @@
           :class="{ 'participant--focused': player.puuid === puuid }"
         >
           <div class="participant-identity">
-            <AssetImage
-              :src="asset(`/v1/champion-icons/${player.championId}.png`)"
-              :label="`英雄 ${player.championId}`"
-            />
+            <span class="portrait-wrap">
+              <AssetImage
+                :src="asset(`/v1/champion-icons/${player.championId}.png`)"
+                :label="`英雄 ${player.championId}`"
+              />
+              <span v-if="scoreOf(player).mvp" class="mvp-badge">MVP</span>
+              <span v-else-if="scoreOf(player).svp" class="svp-badge"
+                >SVP</span
+              >
+            </span>
             <div>
               <button
                 class="text-button player-link"
@@ -75,11 +82,20 @@
                 :title="player.name"
                 @click="emit('checkout-puuid', player.puuid, player.name)"
               >
-                {{ player.name }}
-                <span v-if="player.puuid === puuid" class="mini-tag"
+                <span
+                  v-if="scoreOf(player).score !== null"
+                  class="score-pill"
+                  :class="`score-pill--${scoreTier(scoreOf(player).score)}`"
+                  >{{ scoreOf(player).score.toFixed(1) }}</span
+                ><span class="player-name">{{ player.name }}</span
+                ><span v-if="player.puuid === puuid" class="mini-tag"
                   >当前</span
                 ></button
-              ><small class="muted">{{ rankLabel(ranks[player.puuid]) }}</small>
+              ><small
+                class="muted"
+                :title="`${rankLabel(ranks[player.puuid])} · 段位为最近查询快照，不代表参赛时段位`"
+                >{{ rankLabel(ranks[player.puuid]) }}</small
+              >
             </div>
           </div>
           <div
@@ -109,13 +125,17 @@
                 :label="`技能 ${spell || '—'}`"
               />
             </div>
-            <AssetImage
-              v-for="slot in 7"
-              :key="slot"
-              small
-              :src="itemIcon(player.stats[`item${slot - 1}`])"
-              :label="`物品 ${player.stats[`item${slot - 1}`] || '空'}`"
-            />
+            <div class="items">
+              <template v-for="slot in 7" :key="slot">
+                <AssetImage
+                  v-if="player.stats[`item${slot - 1}`]"
+                  small
+                  :src="itemIcon(player.stats[`item${slot - 1}`])"
+                  :label="`物品 ${player.stats[`item${slot - 1}`]}`"
+                />
+                <span v-else class="item-slot"></span>
+              </template>
+            </div>
           </div>
           <div
             class="participant-stat"
@@ -148,17 +168,23 @@
             ><span :class="{ 'stat-top': isTop(player, 'visionScore') }"
               >视野 {{ value(player.stats.visionScore) }}</span
             ><span
-              v-for="label in leaderLabels(player)"
-              :key="label"
-              class="leader-chip"
-              >{{ label }}</span
-            >
+              v-if="(player.stats.pentaKills || 0) > 0"
+              class="achievement-chip"
+              >五杀</span
+            ><span
+              v-for="id in player.augments"
+              :key="id"
+              class="augment"
+              :class="augmentRarity(id)"
+              :title="augmentName(id)"
+              ><AssetImage
+                small
+                :src="augmentIcon(id)"
+                :label="augmentName(id)"
+            /></span>
           </div>
         </div>
       </section>
-      <p class="muted source-note">
-        段位为最近查询快照，不代表参赛时段位。缺失图标不影响战绩数据。
-      </p>
     </template>
     <div v-else class="empty-state">
       <span class="empty-symbol">≡</span>
@@ -173,6 +199,7 @@ import { useMatchDetail } from '@/composables/useMatchDetail'
 import { buildRuntimeRiotAssetUrl as asset } from '@/utils/backend'
 import { buildRuntimeGameItemIconUrl } from '@/utils/assets'
 import { resolveQueueName } from '@/utils/queue'
+import { computeMatchScores, scoreTier } from '@/utils/score'
 import dicts from '@/model/dicts'
 import AssetImage from './components/AssetImage.vue'
 const props = defineProps({
@@ -254,25 +281,28 @@ const players = computed(() => {
             ((stats.kills + stats.assists) / Math.max(1, stats.deaths)) * 10,
           ) / 10
         : null,
+      augments: [1, 2, 3, 4, 5, 6]
+        .map((slot) => stats[`playerAugment${slot}`])
+        .filter((id) => Number.isInteger(id) && id > 0),
     }
   })
 })
-// 全场最高值展示：默认全部可见，不需要额外点击展开。
+// 全场最高值高亮维度：文字标记已移除，仅用颜色区分。
 const leaderStats = [
-  ['kda', '最高 KDA'],
-  ['goldEarned', '最高经济'],
-  ['totalDamageDealtToChampions', '最高伤害'],
-  ['totalDamageTaken', '最高承伤'],
-  ['damageDealtToObjectives', '最高目标伤害'],
-  ['timeCCingOthers', '最高控制'],
-  ['visionScore', '最高视野'],
-  ['assists', '最多助攻'],
+  'kda',
+  'goldEarned',
+  'totalDamageDealtToChampions',
+  'totalDamageTaken',
+  'damageDealtToObjectives',
+  'timeCCingOthers',
+  'visionScore',
+  'assists',
 ]
 const statValue = (player, key) =>
   key === 'kda' ? player.kda : player.stats[key]
 const maxStats = computed(() => {
   const result = {}
-  leaderStats.forEach(([key]) => {
+  leaderStats.forEach((key) => {
     const values = players.value
       .map((player) => statValue(player, key))
       .filter((value) => Number.isFinite(value))
@@ -284,12 +314,20 @@ const isTop = (player, key) => {
   const value = statValue(player, key)
   return Number.isFinite(value) && value === maxStats.value[key]
 }
-const leaderLabels = (player) => {
-  const labels = leaderStats
-    .filter(([key]) => isTop(player, key))
-    .map(([, label]) => label)
-  if ((player.stats.pentaKills || 0) > 0) labels.push('五杀')
-  return labels
+// 海克斯大乱斗强化：LCU 对局详情 stats.playerAugment1~6 直接带出选择结果。
+const augmentDict = dicts.getFeDict('augment')
+const augmentOf = (id) => augmentDict[String(id)]
+const augmentIcon = (id) => {
+  const entry = augmentOf(id)
+  return entry?.i ? asset(entry.i) : ''
+}
+const augmentName = (id) => augmentOf(id)?.n || `强化 ${id}`
+const augmentRarity = (id) => {
+  const rarity = augmentOf(id)?.r
+  if (rarity === 'kPrismatic') return 'augment--prismatic'
+  if (rarity === 'kGold') return 'augment--gold'
+  if (rarity === 'kSilver') return 'augment--silver'
+  return ''
 }
 const ccSeconds = (value) => (Number.isFinite(value) ? Math.round(value) : '—')
 const resultClass = (win) =>
@@ -325,4 +363,13 @@ const focusedTeam = computed(() =>
     team.players.some((player) => player.puuid === props.puuid),
   ),
 )
+// 单局综合评分：胜方最高分标记 MVP，败方最高分标记 SVP。
+const scores = computed(() =>
+  computeMatchScores(
+    players.value,
+    teams.value.map((team) => ({ id: team.id, win: team.win })),
+  ),
+)
+const scoreOf = (player) =>
+  scores.value[player.participantId] || { score: null, mvp: false, svp: false }
 </script>

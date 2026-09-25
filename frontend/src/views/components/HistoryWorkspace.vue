@@ -4,7 +4,7 @@
     :class="{ 'has-detail': current.gameId, compact }"
   >
     <header class="workspace-header">
-      <div>
+      <div class="workspace-title">
         <button
           v-if="stack.length > 1"
           class="text-button"
@@ -12,16 +12,38 @@
         >
           ← 返回上一位玩家
         </button>
-        <h3>{{ current.name || '召唤师战绩' }}</h3>
-        <small class="muted">{{ current.scope || '连接后识别大区' }}</small
-        ><small v-if="profile" class="muted">
-          · 等级 {{ profile.summonerLevel || '—' }}</small
-        ><small v-if="rankSnapshot" class="muted">
-          · 最近段位 {{ rankLabel }}</small
-        ><small v-if="profileMeta?.fetchedAt" class="muted">
-          · 资料更新于
-          {{ new Date(profileMeta.fetchedAt).toLocaleString('zh-CN') }}</small
-        >
+        <h3>
+          <span class="workspace-name">{{ current.name || '召唤师战绩' }}</span
+          ><a-popover trigger="hover" placement="bottomLeft">
+            <template #content>
+              <div class="profile-popover">
+                <p>
+                  <span class="muted">大区</span>
+                  {{ current.scope || '连接后识别大区' }}
+                </p>
+                <p>
+                  <span class="muted">等级</span>
+                  {{ profile?.summonerLevel || '—' }}
+                </p>
+                <p>
+                  <span class="muted">最近段位</span>
+                  {{ rankSnapshot ? rankLabel : '暂无段位快照' }}
+                </p>
+                <p v-if="profileMeta?.fetchedAt">
+                  <span class="muted">资料更新</span>
+                  {{ new Date(profileMeta.fetchedAt).toLocaleString('zh-CN') }}
+                </p>
+              </div>
+            </template>
+            <button
+              class="profile-trigger"
+              :title="profileTitle"
+              aria-label="查看召唤师资料"
+            >
+              ⓘ
+            </button>
+          </a-popover>
+        </h3>
       </div>
       <div class="actions">
         <a-button v-if="current.gameId" size="small" @click="closeDetail"
@@ -91,9 +113,21 @@ const rankLabel = computed(() =>
     ? `${dicts.getDict('rank')[rankSnapshot.value.tier] || rankSnapshot.value.tier} ${rankSnapshot.value.division === 'NA' ? '' : rankSnapshot.value.division || ''}`
     : '暂无排位',
 )
+// 资料概况仅供悬浮提示使用，头部不再占用文案行。
 const historyList = ref(null)
 const cacheEpoch = computed(() => store.state.ui.cacheGeneration)
 const current = computed(() => stack.value[stack.value.length - 1] || {})
+const profileTitle = computed(() => {
+  const parts = []
+  if (current.value.scope) parts.push(current.value.scope)
+  if (profile.value) parts.push(`等级 ${profile.value.summonerLevel || '—'}`)
+  if (rankSnapshot.value) parts.push(`最近段位 ${rankLabel.value}`)
+  if (profileMeta.value?.fetchedAt)
+    parts.push(
+      `资料更新于 ${new Date(profileMeta.value.fetchedAt).toLocaleString('zh-CN')}`,
+    )
+  return parts.join(' · ') || '暂无资料'
+})
 function entry(player) {
   return {
     puuid: player.puuid || '',

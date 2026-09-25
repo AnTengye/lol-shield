@@ -30,23 +30,54 @@
           <router-link to="/settings" class="nav-link" title="设置"
             ><SettingOutlined /><span class="nav-label">设置</span></router-link
           >
-          <div class="account-summary">
-            <AssetImage
-              :src="
-                user.profileIconId
-                  ? asset(`/v1/profile-icons/${user.profileIconId}.jpg`)
-                  : ''
-              "
-              label="账号"
-              small
-            />
-            <div class="nav-label">
-              <strong>{{ user.gameName || '未连接账号' }}</strong
-              ><small>{{
-                user.tagLine ? '#' + user.tagLine : '本地记录随时可用'
-              }}</small>
+          <a-popover trigger="hover" placement="topLeft">
+            <template #content>
+              <div class="account-popover">
+                <div class="account-popover-head">
+                  <AssetImage
+                    :src="
+                      user.profileIconId
+                        ? asset(`/v1/profile-icons/${user.profileIconId}.jpg`)
+                        : ''
+                    "
+                    label="账号"
+                  />
+                  <div>
+                    <strong>{{ user.gameName || '未连接账号' }}</strong
+                    ><small>{{ user.tagLine ? '#' + user.tagLine : '本地记录随时可用' }}</small>
+                  </div>
+                </div>
+                <p>
+                  <span class="muted">等级</span
+                  >{{ online ? user.summonerLevel || '—' : '—' }}
+                </p>
+                <p>
+                  <span class="muted">段位</span>{{ selfRankLabel }}
+                </p>
+                <p>
+                  <span class="muted">状态</span
+                  >{{ online ? '客户端已连接' : '客户端未连接' }}
+                </p>
+              </div>
+            </template>
+            <div class="account-summary">
+              <AssetImage
+                :src="
+                  user.profileIconId
+                    ? asset(`/v1/profile-icons/${user.profileIconId}.jpg`)
+                    : ''
+                "
+                label="账号"
+                small
+              />
+              <div class="nav-label">
+                <strong>{{ user.gameName || '未连接账号' }}</strong
+                ><small>{{
+                  user.tagLine ? '#' + user.tagLine : '本地记录随时可用'
+                }}</small>
+              </div>
             </div>
-          </div>
+          </a-popover>
         </div>
       </aside>
       <div class="main-shell">
@@ -94,9 +125,10 @@ import {
 } from '@ant-design/icons-vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useStore } from 'vuex'
-import { getStatus, getUser } from '@/api/bog'
+import { getStatus, getUser, getGameRankHighest } from '@/api/bog'
 import { createWebSocket, destroyWebSocket } from '@/websocket'
 import { buildRuntimeRiotAssetUrl as asset } from '@/utils/backend'
+import dicts from '@/model/dicts'
 import AssetImage from '@/views/components/AssetImage.vue'
 import UpdateNotice from '@/views/components/UpdateNotice.vue'
 const route = useRoute(),
@@ -104,7 +136,14 @@ const route = useRoute(),
   store = useStore()
 function showRunning() { router.push('/running'); gameNotice.value = false }
 const user = ref({}),
+  selfRank = ref(null),
   gameNotice = ref(false)
+const selfRankLabel = computed(() => {
+  const rank = selfRank.value
+  if (!rank?.tier || rank.tier === 'NONE') return '暂无段位快照'
+  const map = dicts.getDict('rank')
+  return `${map[rank.tier] || rank.tier} ${rank.division === 'NA' ? '' : rank.division || ''}`.trim()
+})
 const [modal, contextHolder] = Modal.useModal()
 let unlistenClose,
   closeConfirmation = false
@@ -158,11 +197,21 @@ watch(
     })
     if (!connected) {
       user.value = {}
+      selfRank.value = null
       return
     }
     try {
       const result = await getUser()
-      if (active) user.value = result.data
+      if (!active) return
+      user.value = result.data
+      if (result.data?.puuid) {
+        try {
+          const rank = await getGameRankHighest(result.data.puuid)
+          if (active) selfRank.value = rank.data
+        } catch {
+          if (active) selfRank.value = null
+        }
+      }
     } catch {
       /* 用户资料失败不影响离线入口 */
     }

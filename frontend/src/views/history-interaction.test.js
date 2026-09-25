@@ -67,7 +67,7 @@ const stubs = {
   AEmpty: { template: '<div>空列表</div>' },
   ASwitch: true,
   APagination: true,
-  APopover: { template: '<div><slot /></div>' },
+  APopover: { template: '<div><slot /><slot name="content" /></div>' },
   ACheckbox: true,
 }
 let store, router
@@ -290,6 +290,9 @@ describe('共用战绩交互', () => {
           timeCCingOthers: 12.4,
           visionScore: 20,
           pentaKills: 1,
+          playerAugment1: 1009,
+          playerAugment2: 1195,
+          playerAugment3: 1320,
         },
       },
       {
@@ -319,18 +322,21 @@ describe('共用战绩交互', () => {
     for (const label of ['伤害', '经济', '承伤', '目标伤害', '控制', '视野'])
       expect(rows[0].text()).toContain(label)
     expect(rows[0].text()).toContain('控制 12秒')
-    // 全场最高只标在对应玩家上
+    // 全场最高只标在对应玩家上，仅用颜色区分，不再输出“最高 xx”文字
     expect(rows[0].findAll('.stat-top')).toHaveLength(2)
     expect(rows[1].findAll('.stat-top')).toHaveLength(5)
-    expect(rows[0].text()).toContain('最高 KDA')
-    expect(rows[0].text()).toContain('最多助攻')
+    expect(rows[0].text()).not.toContain('最高')
     expect(rows[0].text()).toContain('五杀')
-    expect(rows[1].text()).toContain('最高伤害')
-    expect(rows[1].text()).toContain('最高经济')
-    expect(rows[1].text()).toContain('最高目标伤害')
-    expect(rows[1].text()).toContain('最高控制')
-    expect(rows[1].text()).toContain('最高视野')
     expect(rows[1].text()).not.toContain('五杀')
+    // WeGame 风格评分：胜方最高分 MVP、败方最高分 SVP
+    expect(rows[0].find('.score-pill').text()).toBe('6.0')
+    expect(rows[1].find('.score-pill').text()).toBe('4.0')
+    expect(rows[0].find('.mvp-badge').exists()).toBe(true)
+    expect(rows[1].find('.svp-badge').exists()).toBe(true)
+    // 海克斯大乱斗强化：直接展示玩家选取的强化图标
+    expect(rows[0].findAll('.augment')).toHaveLength(3)
+    expect(rows[0].findAll('.augment')[0].attributes('title')).toBe('霸符兄弟')
+    expect(rows[1].findAll('.augment')).toHaveLength(0)
   })
   it('离线服务故障保留真实错误，不把有效详情标为淘汰', async () => {
     api.getGameDetail.mockRejectedValue(new Error('本地服务连接失败'))

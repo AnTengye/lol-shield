@@ -8,6 +8,7 @@
     "build": "vite build",
     "generate:queues": "node scripts/generate-queue-metadata.mjs",
     "generate:items": "node scripts/generate-item-dict.mjs",
+    "generate:augments": "node scripts/generate-augment-dict.mjs",
     "test:structure": "node --test src/views/RealTime.structure.test.mjs",
     "test": "vitest run",
     "test:utils": "node --test src/utils/*.test.js scripts/*.test.mjs src/views/RealTime.structure.test.mjs",

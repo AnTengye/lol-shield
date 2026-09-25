@@ -221,12 +221,23 @@ test('真实 sidecar：实时详情、分页返回、离线重启、容量管理
   await page.locator('.history-row').first().click()
   await expect(page.locator('.detail-header')).toBeVisible()
   await expect(page.locator('.cache-label')).toContainText('可离线查看')
-  // 全部数据项默认可见，且全场最高值有高亮标注，无需额外点击展开。
+  // 全部数据项默认可见，且全场最高值仅用颜色高亮，无需额外点击展开。
   await expect(page.locator('.participant-highlights').first()).toBeVisible()
-  expect(await page.locator('.participant .stat-top').count()).toBeGreaterThan(
-    0,
-  )
-  await expect(page.locator('.leader-chip').first()).toBeVisible()
+  // 本场景 10 人数据完全一致，7 个高亮维度应全部命中。
+  expect(await page.locator('.participant .stat-top').count()).toBe(70)
+  // 视觉验证：全场最高值呈现金色，与普通数值色差显著。
+  expect(
+    await page
+      .locator('.participant .stat-top')
+      .first()
+      .evaluate((el) => getComputedStyle(el).color),
+  ).toBe('rgb(247, 207, 95)')
+  // WeGame 风格评分：每名玩家都有评分，全场仅胜方一枚 MVP、败方一枚 SVP。
+  await expect(page.locator('.participant .score-pill')).toHaveCount(10)
+  await expect(page.locator('.mvp-badge')).toHaveCount(1)
+  await expect(page.locator('.svp-badge')).toHaveCount(1)
+  // 海克斯大乱斗（KIWI）：每位玩家展示 3 个已选强化。
+  await expect(page.locator('.participant .augment')).toHaveCount(30)
   await page.locator('.ant-drawer-close').focus()
   await page.keyboard.press('Escape')
   await expect(page.locator('.detail-header')).toHaveCount(0)

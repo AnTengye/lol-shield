@@ -2,9 +2,7 @@
   <div class="page realtime-page">
     <header class="page-heading">
       <div>
-        <span class="eyebrow">LIVE COMPANION</span>
         <h1>实时对局</h1>
-        <p class="muted">了解双方，专注这一场比赛。</p>
       </div>
       <div class="actions">
         <a-popover title="显示选项" trigger="click"
@@ -129,9 +127,6 @@
           </div>
         </section>
       </div>
-      <p class="muted source-note">
-        近期战绩仅供参考 · 点击召唤师查看战绩与完整对局详情
-      </p>
     </template>
     <PlayerHistoryPanel
       v-model:open="historyDrawerOpen"

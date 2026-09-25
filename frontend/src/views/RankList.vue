@@ -2,9 +2,7 @@
   <div class="page history-page">
     <header class="page-heading">
       <div>
-        <span class="eyebrow">MATCH HISTORY</span>
         <h1>战绩中心</h1>
-        <p class="muted">每一次交锋，都值得回顾。</p>
       </div>
       <div class="actions">
         <router-link v-if="route.query.from === '/running'" to="/running"

@@ -2,9 +2,7 @@
   <div class="page history-page">
     <header class="page-heading">
       <div>
-        <span class="eyebrow">LOCAL ARCHIVE</span>
         <h1>离线记录</h1>
-        <p class="muted">已保存的对局，随时回顾。所有记录仅存储在本机。</p>
       </div>
       <a-button @click="load">刷新本地列表</a-button>
     </header>
@@ -42,10 +40,12 @@
         >仅已保存详情</a-checkbox
       >
     </div>
-    <div v-if="selected" class="archive-count muted">
-      本地保存 {{ selected.summaries }} 场，其中
-      {{ selected.details }} 场可查看详情 · 最后查看
-      {{ new Date(selected.lastViewed).toLocaleString('zh-CN') }}
+    <div
+      v-if="selected"
+      class="archive-count muted"
+      :title="`最后查看 ${new Date(selected.lastViewed).toLocaleString('zh-CN')}`"
+    >
+      本地保存 {{ selected.summaries }} 场 · {{ selected.details }} 场可查看详情
     </div>
     <HistoryWorkspace
       v-if="selected"
