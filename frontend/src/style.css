@@ -925,13 +925,14 @@ small {
 }
 .augment {
   display: inline-flex;
+  flex-shrink: 0;
   border-radius: 5px;
   padding: 1px;
 }
 .augment .asset-image--small {
-  width: 18px;
-  height: 18px;
-  font-size: 7px;
+  width: 32px;
+  height: 32px;
+  font-size: 10px;
   border-radius: 4px;
 }
 .augment--silver {
