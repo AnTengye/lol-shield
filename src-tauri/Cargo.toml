@@ -1,6 +1,6 @@
 [package]
 name = "lol-shield-tauri"
-version = "1.0.0"
+version = "2.0.0-rc.18"
 description = "LOL Shield desktop shell"
 authors = ["LOL Shield"]
 edition = "2021"

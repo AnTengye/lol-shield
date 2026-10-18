@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	Version = "v1.0.0"
+	Version = "v2.0.0-rc.18"
 )
 const (
 	ShowVersion      = "show_version"
