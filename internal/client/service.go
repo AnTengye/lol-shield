@@ -23,6 +23,10 @@ func getIDListFromConversationMsgList(msgList []lcu.ConversationMsg) []lcu.UserI
 	list := make([]lcu.UserId, 0, 5)
 	for _, msg := range msgList {
 		if msg.Type == lcu.ConversationMsgTypeSystem && msg.Body == lcu.JoinedRoomMsg {
+			// 客户端的系统消息可能没有玩家 PID，不能直接截取。
+			if len(msg.FromPid) < len(models.PUUIDNone) {
+				continue
+			}
 			list = append(list, lcu.UserId{
 				SummonerId: msg.FromSummonerId,
 				Puuid:      msg.FromPid[:len(models.PUUIDNone)],
